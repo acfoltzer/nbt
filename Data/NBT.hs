@@ -57,7 +57,9 @@ instance Arbitrary TagType where
 prop_TagType :: TagType -> Bool
 prop_TagType ty = decode (encode ty) == ty
 
--- | Primitive representation of NBT data. 
+-- | Primitive representation of NBT data. This type contains both named
+-- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
+-- when serialized, neither the name nor the type tag will be put.
 data NBT = EndTag
          | ByteTag      (Maybe String) Int8
          | ShortTag     (Maybe String) Int16
@@ -134,9 +136,6 @@ instance Binary NBT where
           EndType -> skip 1 >> return []
           -- otherwise keep reading
           _ -> get >>= \tag -> (tag :) <$> getCompoundElements
-  -- | This instance handles both named and unnamed variants; a
-  -- 'Nothing' name signifies an unnamed tag, so when serialized,
-  -- neither the name nor the type tag will be put.
   put tag = 
     case tag of     
       -- named cases      

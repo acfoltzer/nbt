@@ -8,22 +8,24 @@ Maintainer  :  acfoltzer@gmail.com
 Stability   :  experimental
 Portability :  portable
 
-Defines a 'Data.Binary.Binary' instance for Minecraft's NBT
-binary data format. See the NBT specification for details:
+Defines a Haskell representation of Minecraft's NBT binary data
+format, along with instances of 'Data.Serialize.Serialize'. See the
+NBT specification for details:
 <https://raw.github.com/acfoltzer/nbt/master/NBT-spec.txt>.
 
 -}
 
 module Data.NBT where
 
-import Data.Binary ( Binary (..), decode, encode, getWord8, putWord8 )
-import Data.Binary.Get ( Get, getLazyByteString, lookAhead, skip )
-import Data.Binary.Put ( Put, putLazyByteString )
-import Data.Binary.IEEE754
+import Data.Serialize ( Serialize (..), decode, decodeLazy, encode, encodeLazy, getWord8, putWord8 )
+import Data.Serialize.Get ( Get, getByteString, lookAhead, skip, remaining )
+import Data.Serialize.Put ( Put, putByteString )
+import Data.Serialize.IEEE754
 
 import qualified Codec.Compression.GZip as GZip
-import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
 import Data.Word ( Word8 )
 
@@ -47,15 +49,15 @@ data TagType = EndType
              | CompoundType
                deriving (Show, Eq, Enum)
 
-instance Binary TagType where
-    get = fmap (toEnum . fromEnum) getWord8
-    put = putWord8 . toEnum . fromEnum
+instance Serialize TagType where
+    get = fmap (toEnum . fromIntegral) getWord8
+    put = putWord8 . fromIntegral . fromEnum
 
 instance Arbitrary TagType where
     arbitrary = toEnum <$> choose (0, 10)
 
 prop_TagType :: TagType -> Bool
-prop_TagType ty = decode (encode ty) == ty
+prop_TagType ty = decode (encode ty) == Right ty
 
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
@@ -73,7 +75,7 @@ data NBT = EndTag
          | CompoundTag  (Maybe String) [NBT]
            deriving (Show, Eq)
 
-instance Binary NBT where
+instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
       EndType       -> return EndTag
@@ -105,11 +107,11 @@ instance Binary NBT where
       getDouble n = DoubleTag n <$> getFloat64be
       getByteArray n = do
         len <- get :: Get Int32
-        ByteArrayTag n len <$> getLazyByteString (toEnum $ fromEnum len)
+        ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
       getString n = do
         len <- get :: Get Int16
         StringTag n len <$> UTF8.toString 
-                        <$> getLazyByteString (toEnum $ fromEnum len)
+                        <$> getByteString (toEnum $ fromEnum len)
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
@@ -181,10 +183,10 @@ instance Binary NBT where
       putLong             = put
       putFloat            = putFloat32be
       putDouble           = putFloat64be
-      putByteArray len bs = put len >> putLazyByteString bs
+      putByteArray len bs = put len >> putByteString bs
       putString str       = let bs = UTF8.fromString str 
-                                len = (toEnum . fromEnum) (B.length bs)
-                            in put (len :: Int16) >> putLazyByteString bs
+                                len = fromIntegral (B.length bs)
+                            in put (len :: Int16) >> putByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
       putCompound ts      = forM_ ts put >> put EndTag
 
@@ -222,10 +224,11 @@ instance Arbitrary NBT where
     mkArb ty (Just name)
 
 prop_NBTroundTrip :: NBT -> Bool
-prop_NBTroundTrip nbt = decode (encode nbt) == nbt
+prop_NBTroundTrip nbt = decode (encode nbt) == Right nbt
 
 test = do
-  file <- fmap GZip.decompress $ B.readFile "Test/testWorld/level.dat"
-  let dec = (decode file :: NBT)
+  fileL <- GZip.decompress <$> L.readFile "test/testWorld/level.dat"
+  let file = B.pack (L.unpack fileL)
+      Right dec = (decode file :: Either String NBT)
       enc = encode dec
-  return $ (enc == file, decode enc == dec)
+  return $ (enc == file, decode enc == Right dec)

@@ -13,9 +13,23 @@ Cabal-version:       >=1.8
 Library
   Exposed-modules:     Data.NBT
   hs-source-dirs:      src
-  Build-depends:       base == 4.*,
-                       bytestring == 0.9.*,
-                       cereal == 0.3.4.*,
-                       utf8-string == 0.3.*,
-                       zlib == 0.5.*,
-                       QuickCheck == 2.4.*
+  Build-depends:       base >= 4, 
+                       bytestring >= 0.9.1.10,
+                       cereal >= 0.3.3.1,
+                       utf8-string >= 0.3.6,
+                       zlib >= 0.5.3.1,
+                       QuickCheck
+
+Test-Suite Tests
+  Type:		       exitcode-stdio-1.0
+  hs-source-dirs:      test
+  Main-is:	       Data/NBT/Tests.hs
+  Build-depends:       base >= 4,
+                       bytestring >= 0.9.1.10,
+                       cereal >= 0.3.3.1,
+                       zlib >= 0.5.3.1,
+                       QuickCheck,
+                       test-framework >= 0.4.1,
+                       test-framework-quickcheck2,
+                       nbt
+

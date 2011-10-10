@@ -1,35 +1,36 @@
 Name:                nbt
 Version:             0.2
 Synopsis:            A parser/serializer for Minecraft's Named Binary Tag (NBT) data format.
-Homepage:            http://github.com/acfoltzer/nbt
+Description:         This package includes a data type for the NBT file format, notably used to represent saved data in Minecraft.
+Homepage:            https://github.com/acfoltzer/nbt
+Bug-reports:         https://github.com/acfoltzer/nbt/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Adam C. Foltzer
 Maintainer:          acfoltzer@gmail.com
+Tested-With:         GHC==7.0.4
 Category:            Data
 Build-type:          Simple
 Cabal-version:       >=1.8
 
+extra-source-files:
+  test/Tests.hs
+  test/nbt-tests.cabal
+  test/testWorld/level.dat
+  test/testWorld/region/r.-1.-1.mcr
+  test/testWorld/region/r.0.-1.mcr
+  test/testWorld/region/r.0.0.mcr
+
+source-repository head
+  type:     git
+  location: git://github.com/acfoltzer/bit-vector.git
+
 Library
   Exposed-modules:     Data.NBT
   hs-source-dirs:      src
-  Build-depends:       base >= 4, 
-                       bytestring >= 0.9.1.10,
-                       cereal >= 0.3.3.1,
-                       utf8-string >= 0.3.6,
-                       zlib >= 0.5.3.1,
-                       QuickCheck
-
-Test-Suite Tests
-  Type:		       exitcode-stdio-1.0
-  hs-source-dirs:      test
-  Main-is:	       Data/NBT/Tests.hs
-  Build-depends:       base >= 4,
-                       bytestring >= 0.9.1.10,
-                       cereal >= 0.3.3.1,
-                       zlib >= 0.5.3.1,
-                       QuickCheck,
-                       test-framework >= 0.4.1,
-                       test-framework-quickcheck2,
-                       nbt
-
+  Build-depends:       base == 4.*, 
+                       binary == 0.5.*,
+                       bytestring == 0.9.*,
+                       data-binary-ieee754 == 0.4.*,
+                       utf8-string == 0.3.*
+  ghc-options:         -Wall -O2

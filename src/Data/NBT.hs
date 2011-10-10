@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 {- |
 
 Module      :  Data.NBT
@@ -17,22 +19,26 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Data.Serialize ( Serialize (..), decode, decodeLazy, encode, encodeLazy, getWord8, putWord8 )
-import Data.Serialize.Get ( Get, getByteString, lookAhead, skip, remaining )
-import Data.Serialize.Put ( Put, putByteString )
-import Data.Serialize.IEEE754
+import Data.Binary ( 
+    Binary (..)
+  , getWord8
+  , putWord8 
+  )
+import Data.Binary.Get ( 
+    Get
+  , getLazyByteString
+  , lookAhead
+  , skip
+  )
+import Data.Binary.Put ( putLazyByteString )
+import Data.Binary.IEEE754
 
-import qualified Codec.Compression.GZip as GZip
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
+import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
-import Data.Word ( Word8 )
 
 import Control.Applicative ( (<$>) )
 import Control.Monad ( forM_, replicateM )
-
-import Test.QuickCheck
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
@@ -49,15 +55,9 @@ data TagType = EndType
              | CompoundType
                deriving (Show, Eq, Enum)
 
-instance Serialize TagType where
+instance Binary TagType where
     get = fmap (toEnum . fromIntegral) getWord8
     put = putWord8 . fromIntegral . fromEnum
-
-instance Arbitrary TagType where
-    arbitrary = toEnum <$> choose (0, 10)
-
-prop_TagType :: TagType -> Bool
-prop_TagType ty = decode (encode ty) == Right ty
 
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
@@ -75,7 +75,7 @@ data NBT = EndTag
          | CompoundTag  (Maybe String) [NBT]
            deriving (Show, Eq)
 
-instance Serialize NBT where
+instance Binary NBT where
   get = get >>= \ty ->
     case ty of
       EndType       -> return EndTag
@@ -107,11 +107,11 @@ instance Serialize NBT where
       getDouble n = DoubleTag n <$> getFloat64be
       getByteArray n = do
         len <- get :: Get Int32
-        ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
+        ByteArrayTag n len <$> getLazyByteString (toEnum $ fromEnum len)
       getString n = do
         len <- get :: Get Int16
         StringTag n len <$> UTF8.toString 
-                        <$> getByteString (toEnum $ fromEnum len)
+                        <$> getLazyByteString (toEnum $ fromEnum len)
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
@@ -156,7 +156,7 @@ instance Serialize NBT where
         put DoubleType >> putName n >> putDouble d
       ByteArrayTag (Just n) len bs ->
         put ByteArrayType >> putName n >> putByteArray len bs
-      StringTag (Just n) len str ->
+      StringTag (Just n) _len str ->
         put StringType >> putName n >> putString str
       ListTag (Just n) ty len ts ->
         put ListType >> putName n >> putList ty len ts
@@ -171,7 +171,7 @@ instance Serialize NBT where
       FloatTag Nothing f          -> putFloat f
       DoubleTag Nothing d         -> putDouble d
       ByteArrayTag Nothing len bs -> putByteArray len bs
-      StringTag Nothing len str   -> putString str
+      StringTag Nothing _len str  -> putString str
       ListTag Nothing ty len ts   -> putList ty len ts
       CompoundTag Nothing ts      -> putCompound ts
     where
@@ -183,52 +183,11 @@ instance Serialize NBT where
       putLong             = put
       putFloat            = putFloat32be
       putDouble           = putFloat64be
-      putByteArray len bs = put len >> putByteString bs
+      putByteArray len bs = put len >> putLazyByteString bs
       putString str       = let bs = UTF8.fromString str 
                                 len = fromIntegral (B.length bs)
-                            in put (len :: Int16) >> putByteString bs
+                            in put (len :: Int16) >> putLazyByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
       putCompound ts      = forM_ ts put >> put EndTag
 
-instance Arbitrary NBT where
-  arbitrary = do
-    ty <- arbitrary
-    name <- arbitrary
-    let mkArb ty name = 
-          case ty of
-            EndType -> return EndTag
-            ByteType -> ByteTag name <$> arbitrary
-            ShortType -> ShortTag name <$> arbitrary
-            IntType -> IntTag name <$> arbitrary
-            LongType -> LongTag name <$> arbitrary
-            FloatType -> FloatTag name <$> arbitrary
-            DoubleType -> DoubleTag name <$> arbitrary
-            ByteArrayType -> do
-              len <- (toEnum . fromEnum) <$> choose (0, 100 :: Int) :: Gen Int32
-              ws <- replicateM (toEnum $ fromEnum len) arbitrary
-              return $ ByteArrayTag name len $ B.pack ws
-            StringType -> do
-              n <- choose (0, 100) :: Gen Int
-              str <- replicateM (toEnum $ fromEnum n) arbitrary
-              let len' = (toEnum . fromEnum) (B.length (UTF8.fromString str))
-              return $ StringTag name len' str
-            ListType -> do
-              ty <- arbitrary `suchThat` (EndType /=)
-              len <- (toEnum . fromEnum) <$> choose (0, 10 :: Int) :: Gen Int32
-              ts <- replicateM (toEnum $ fromEnum len) (mkArb ty Nothing)
-              return $ ListTag name ty len ts
-            CompoundType -> do
-              n <- choose (0, 10)
-              ts <- replicateM n (arbitrary `suchThat` (EndTag /=) :: Gen NBT)
-              return $ CompoundTag name ts
-    mkArb ty (Just name)
 
-prop_NBTroundTrip :: NBT -> Bool
-prop_NBTroundTrip nbt = decode (encode nbt) == Right nbt
-
-test = do
-  fileL <- GZip.decompress <$> L.readFile "test/testWorld/level.dat"
-  let file = B.pack (L.unpack fileL)
-      Right dec = (decode file :: Either String NBT)
-      enc = encode dec
-  return $ (enc == file, decode enc == Right dec)

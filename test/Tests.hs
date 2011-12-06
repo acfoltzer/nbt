@@ -5,9 +5,10 @@ module Main where
 import Data.NBT
 
 import qualified Codec.Compression.GZip as GZip
-import qualified Data.ByteString.Lazy as B
-import Data.Binary ( Binary (..), decode, encode )
-import qualified Data.ByteString.Lazy.UTF8 as UTF8 ( fromString, toString )
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import Data.Serialize ( Serialize (..), decode, encode )
+import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 
 import Control.Applicative
 import Control.Monad
@@ -22,8 +23,10 @@ import Test.HUnit
 instance Arbitrary TagType where
     arbitrary = toEnum <$> choose (0, 10)
 
+eitherErr = either error id
+
 prop_TagType :: TagType -> Bool
-prop_TagType ty = decode (encode ty) == ty
+prop_TagType ty = eitherErr (decode (encode ty)) == ty
 
 instance Arbitrary NBT where
   arbitrary = do
@@ -59,15 +62,15 @@ instance Arbitrary NBT where
     mkArb ty (Just name)
 
 prop_NBTroundTrip :: NBT -> Bool
-prop_NBTroundTrip nbt = decode (encode nbt) == nbt
+prop_NBTroundTrip nbt = eitherErr (decode (encode nbt)) == nbt
 
 testWorld = do
-  fileL <- GZip.decompress <$> B.readFile "testWorld/level.dat"
-  let file = B.pack (B.unpack fileL)
-      dec = (decode file :: NBT)
+  fileL <- GZip.decompress <$> L.readFile "testWorld/level.dat"
+  let file = B.pack (L.unpack fileL)
+      dec = eitherErr (decode file) :: NBT
       enc = encode dec
   enc @?= file 
-  decode enc @?= dec
+  eitherErr (decode enc) @?= dec
 
 tests = [
     testProperty "Tag roundtrip" prop_TagType

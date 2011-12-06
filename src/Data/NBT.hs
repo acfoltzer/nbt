@@ -19,22 +19,22 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Data.Binary ( 
-    Binary (..)
+import Data.Serialize ( 
+    Serialize (..)
   , getWord8
   , putWord8 
   )
-import Data.Binary.Get ( 
+import Data.Serialize.Get ( 
     Get
-  , getLazyByteString
+  , getByteString
   , lookAhead
   , skip
   )
-import Data.Binary.Put ( putLazyByteString )
-import Data.Binary.IEEE754
+import Data.Serialize.Put ( putByteString )
+import Data.Serialize.IEEE754
 
-import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Lazy.UTF8 as UTF8 ( fromString, toString )
+import qualified Data.ByteString as B
+import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
 
 import Control.Applicative ( (<$>) )
@@ -55,7 +55,7 @@ data TagType = EndType
              | CompoundType
                deriving (Show, Eq, Enum)
 
-instance Binary TagType where
+instance Serialize TagType where
     get = fmap (toEnum . fromIntegral) getWord8
     put = putWord8 . fromIntegral . fromEnum
 
@@ -75,7 +75,7 @@ data NBT = EndTag
          | CompoundTag  (Maybe String) [NBT]
            deriving (Show, Eq)
 
-instance Binary NBT where
+instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
       EndType       -> return EndTag
@@ -107,11 +107,11 @@ instance Binary NBT where
       getDouble n = DoubleTag n <$> getFloat64be
       getByteArray n = do
         len <- get :: Get Int32
-        ByteArrayTag n len <$> getLazyByteString (toEnum $ fromEnum len)
+        ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
       getString n = do
         len <- get :: Get Int16
         StringTag n len <$> UTF8.toString 
-                        <$> getLazyByteString (toEnum $ fromEnum len)
+                        <$> getByteString (toEnum $ fromEnum len)
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
@@ -176,17 +176,17 @@ instance Binary NBT where
       CompoundTag Nothing ts      -> putCompound ts
     where
       -- name and payload helpers
-      putName n           = putString n
+      putName             = putString
       putByte             = put
       putShort            = put
       putInt              = put
       putLong             = put
       putFloat            = putFloat32be
       putDouble           = putFloat64be
-      putByteArray len bs = put len >> putLazyByteString bs
+      putByteArray len bs = put len >> putByteString bs
       putString str       = let bs = UTF8.fromString str 
                                 len = fromIntegral (B.length bs)
-                            in put (len :: Int16) >> putLazyByteString bs
+                            in put (len :: Int16) >> putByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
       putCompound ts      = forM_ ts put >> put EndTag
 

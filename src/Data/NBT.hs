@@ -91,7 +91,7 @@ instance Serialize NBT where
         strTag <- unnamed getString
         case strTag of
           StringTag Nothing _ str -> return $ Just str
-          _ -> error "found tag with unparseable name"
+          _ -> fail "found tag with unparseable name"
       getByte n   = ByteTag n <$> get
       getShort n  = ShortTag n <$> get
       getInt n    = IntTag n <$> get
@@ -112,7 +112,7 @@ instance Serialize NBT where
           replicateM (toEnum $ fromEnum len) (getListElement ty)
       getListElement ty =
         case ty of
-          EndType       -> error "TAG_End can't appear in a list"
+          EndType       -> fail "TAG_End can't appear in a list"
           ByteType      -> unnamed getByte
           ShortType     -> unnamed getShort
           IntType       -> unnamed getInt

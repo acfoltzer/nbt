@@ -19,26 +19,16 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Data.Serialize ( 
-    Serialize (..)
-  , getWord8
-  , putWord8 
-  )
-import Data.Serialize.Get ( 
-    Get
-  , getByteString
-  , lookAhead
-  , skip
-  )
-import Data.Serialize.Put ( putByteString )
-import Data.Serialize.IEEE754
-
-import qualified Data.ByteString as B
-import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
-import Data.Int ( Int8, Int16, Int32, Int64 )
-
-import Control.Applicative ( (<$>) )
-import Control.Monad ( forM_, replicateM )
+import           Control.Applicative    ((<$>))
+import           Control.Monad          (forM_, replicateM)
+import           Data.Array             (Array, elems, listArray)
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.UTF8   as UTF8 (fromString, toString)
+import           Data.Int               (Int16, Int32, Int64, Int8)
+import           Data.Serialize         (Serialize (..), getWord8, putWord8)
+import           Data.Serialize.Get     (Get, getByteString, lookAhead, skip)
+import           Data.Serialize.IEEE754
+import           Data.Serialize.Put     (putByteString)
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
@@ -53,6 +43,7 @@ data TagType = EndType
              | StringType
              | ListType
              | CompoundType
+             | IntArrayType
                deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
@@ -73,6 +64,7 @@ data NBT = EndTag
          | StringTag    (Maybe String) Int16 String
          | ListTag      (Maybe String) TagType Int32 [NBT]
          | CompoundTag  (Maybe String) [NBT]
+         | IntArrayTag  (Maybe String) Int32 (Array Int32 Int32)
            deriving (Show, Eq)
 
 instance Serialize NBT where
@@ -89,6 +81,7 @@ instance Serialize NBT where
       StringType    -> named getString
       ListType      -> named getList
       CompoundType  -> named getCompound
+      IntArrayType  -> named getIntArray
     where
       -- name combinators
       named f = getName >>= f
@@ -110,14 +103,14 @@ instance Serialize NBT where
         ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
       getString n = do
         len <- get :: Get Int16
-        StringTag n len <$> UTF8.toString 
+        StringTag n len <$> UTF8.toString
                         <$> getByteString (toEnum $ fromEnum len)
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
         ListTag n ty len <$>
           replicateM (toEnum $ fromEnum len) (getListElement ty)
-      getListElement ty = 
+      getListElement ty =
         case ty of
           EndType       -> error "TAG_End can't appear in a list"
           ByteType      -> unnamed getByte
@@ -130,6 +123,7 @@ instance Serialize NBT where
           StringType    -> unnamed getString
           ListType      -> unnamed getList
           CompoundType  -> unnamed getCompound
+          IntArrayType  -> unnamed getIntArray
       getCompound n = CompoundTag n <$> getCompoundElements
       getCompoundElements = do
         ty <- lookAhead get
@@ -138,15 +132,19 @@ instance Serialize NBT where
           EndType -> skip 1 >> return []
           -- otherwise keep reading
           _ -> get >>= \tag -> (tag :) <$> getCompoundElements
-  put tag = 
-    case tag of     
-      -- named cases      
+      getIntArray n = do
+        len <- get :: Get Int32
+        IntArrayTag n len . listArray (0, len-1)
+          <$> (replicateM (fromIntegral len) $ get)
+  put tag =
+    case tag of
+      -- named cases
       EndTag -> put EndType
-      ByteTag (Just n) b -> 
+      ByteTag (Just n) b ->
         put ByteType >> putName n >> putByte b
-      ShortTag (Just n) s -> 
+      ShortTag (Just n) s ->
         put ShortType >> putName n >> putShort s
-      IntTag (Just n) i -> 
+      IntTag (Just n) i ->
         put IntType >> putName n >> putInt i
       LongTag (Just n) l ->
         put LongType >> putName n >> putLong l
@@ -162,32 +160,34 @@ instance Serialize NBT where
         put ListType >> putName n >> putList ty len ts
       CompoundTag (Just n) ts ->
         put CompoundType >> putName n >> putCompound ts
+      IntArrayTag (Just n) len ints ->
+        put IntArrayType >> putName n >> putIntArray len ints
       -- unnamed cases
       -- EndTag can't be unnamed
-      ByteTag Nothing b           -> putByte b
-      ShortTag Nothing s          -> putShort s
-      IntTag Nothing i            -> putInt i
-      LongTag Nothing l           -> putLong l
-      FloatTag Nothing f          -> putFloat f
-      DoubleTag Nothing d         -> putDouble d
-      ByteArrayTag Nothing len bs -> putByteArray len bs
-      StringTag Nothing _len str  -> putString str
-      ListTag Nothing ty len ts   -> putList ty len ts
-      CompoundTag Nothing ts      -> putCompound ts
+      ByteTag Nothing b            -> putByte b
+      ShortTag Nothing s           -> putShort s
+      IntTag Nothing i             -> putInt i
+      LongTag Nothing l            -> putLong l
+      FloatTag Nothing f           -> putFloat f
+      DoubleTag Nothing d          -> putDouble d
+      ByteArrayTag Nothing len bs  -> putByteArray len bs
+      StringTag Nothing _len str   -> putString str
+      ListTag Nothing ty len ts    -> putList ty len ts
+      CompoundTag Nothing ts       -> putCompound ts
+      IntArrayTag Nothing len ints -> putIntArray len ints
     where
       -- name and payload helpers
-      putName             = putString
-      putByte             = put
-      putShort            = put
-      putInt              = put
-      putLong             = put
-      putFloat            = putFloat32be
-      putDouble           = putFloat64be
-      putByteArray len bs = put len >> putByteString bs
-      putString str       = let bs = UTF8.fromString str 
-                                len = fromIntegral (B.length bs)
-                            in put (len :: Int16) >> putByteString bs
-      putList ty len ts   = put ty >> put len >> forM_ ts put
-      putCompound ts      = forM_ ts put >> put EndTag
-
-
+      putName              = putString
+      putByte              = put
+      putShort             = put
+      putInt               = put
+      putLong              = put
+      putFloat             = putFloat32be
+      putDouble            = putFloat64be
+      putByteArray len bs  = put len >> putByteString bs
+      putString str        = let bs = UTF8.fromString str
+                                 len = fromIntegral (B.length bs)
+                             in put (len :: Int16) >> putByteString bs
+      putList ty len ts    = put ty >> put len >> forM_ ts put
+      putCompound ts       = forM_ ts put >> put EndTag
+      putIntArray len ints = put len >> forM_ (elems ints) put

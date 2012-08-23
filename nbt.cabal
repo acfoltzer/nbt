@@ -31,5 +31,6 @@ Library
   Build-depends:       base == 4.*, 
                        bytestring == 0.9.*,
                        cereal >= 0.3.4 && < 0.4,
-                       utf8-string == 0.3.*
+                       utf8-string == 0.3.*,
+                       array >= 0.4
   ghc-options:         -Wall 

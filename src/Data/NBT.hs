@@ -36,6 +36,7 @@ import Data.Serialize.IEEE754
 import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Array.Unboxed ( UArray, listArray, elems )
 
 import Control.Applicative ( (<$>) )
 import Control.Monad ( forM_, replicateM )
@@ -53,6 +54,7 @@ data TagType = EndType
              | StringType
              | ListType
              | CompoundType
+             | IntArrayType
                deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
@@ -73,6 +75,7 @@ data NBT = EndTag
          | StringTag    (Maybe String) Int16 String
          | ListTag      (Maybe String) TagType Int32 [NBT]
          | CompoundTag  (Maybe String) [NBT]
+         | IntArrayTag  (Maybe String) Int32 (UArray Int32 Int32)
            deriving (Show, Eq)
 
 instance Serialize NBT where
@@ -89,6 +92,7 @@ instance Serialize NBT where
       StringType    -> named getString
       ListType      -> named getList
       CompoundType  -> named getCompound
+      IntArrayType  -> named getIntArray
     where
       -- name combinators
       named f = getName >>= f
@@ -130,6 +134,7 @@ instance Serialize NBT where
           StringType    -> unnamed getString
           ListType      -> unnamed getList
           CompoundType  -> unnamed getCompound
+          IntArrayType  -> unnamed getIntArray
       getCompound n = CompoundTag n <$> getCompoundElements
       getCompoundElements = do
         ty <- lookAhead get
@@ -138,6 +143,12 @@ instance Serialize NBT where
           EndType -> skip 1 >> return []
           -- otherwise keep reading
           _ -> get >>= \tag -> (tag :) <$> getCompoundElements
+      getIntArray n = do
+        len <- get :: Get Int32
+        IntArrayTag n len <$> getIntArrayElements len
+      getIntArrayElements len = do
+        ints <- replicateM (fromIntegral len) (get :: Get Int32)
+        return $ listArray (0, len - 1) ints
   put tag = 
     case tag of     
       -- named cases      
@@ -162,6 +173,8 @@ instance Serialize NBT where
         put ListType >> putName n >> putList ty len ts
       CompoundTag (Just n) ts ->
         put CompoundType >> putName n >> putCompound ts
+      IntArrayTag (Just n) ts is ->
+        put IntArrayType >> putName n >> putIntArray ts is
       -- unnamed cases
       -- EndTag can't be unnamed
       ByteTag Nothing b           -> putByte b
@@ -174,6 +187,7 @@ instance Serialize NBT where
       StringTag Nothing _len str  -> putString str
       ListTag Nothing ty len ts   -> putList ty len ts
       CompoundTag Nothing ts      -> putCompound ts
+      IntArrayTag Nothing len is  -> putIntArray len is
     where
       -- name and payload helpers
       putName             = putString
@@ -189,5 +203,6 @@ instance Serialize NBT where
                             in put (len :: Int16) >> putByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
       putCompound ts      = forM_ ts put >> put EndTag
+      putIntArray len is  = put len >> mapM_ put (elems is)
 
 

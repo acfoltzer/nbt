@@ -71,7 +71,7 @@ data NBT = EndTag
          | LongTag      (Maybe String) Int64
          | FloatTag     (Maybe String) Float
          | DoubleTag    (Maybe String) Double
-         | ByteArrayTag (Maybe String) Int32 B.ByteString
+         | ByteArrayTag (Maybe String) Int32 (UArray Int32 Int8)
          | StringTag    (Maybe String) Int16 String
          | ListTag      (Maybe String) TagType Int32 [NBT]
          | CompoundTag  (Maybe String) [NBT]
@@ -111,7 +111,7 @@ instance Serialize NBT where
       getDouble n = DoubleTag n <$> getFloat64be
       getByteArray n = do
         len <- get :: Get Int32
-        ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
+        ByteArrayTag n len <$> getArrayElements len
       getString n = do
         len <- get :: Get Int16
         StringTag n len <$> UTF8.toString 
@@ -145,10 +145,10 @@ instance Serialize NBT where
           _ -> get >>= \tag -> (tag :) <$> getCompoundElements
       getIntArray n = do
         len <- get :: Get Int32
-        IntArrayTag n len <$> getIntArrayElements len
-      getIntArrayElements len = do
-        ints <- replicateM (fromIntegral len) (get :: Get Int32)
-        return $ listArray (0, len - 1) ints
+        IntArrayTag n len <$> getArrayElements len
+      getArrayElements len = do
+        elts <- replicateM (fromIntegral len) get
+        return $ listArray (0, len - 1) elts
   put tag = 
     case tag of     
       -- named cases      
@@ -197,7 +197,7 @@ instance Serialize NBT where
       putLong             = put
       putFloat            = putFloat32be
       putDouble           = putFloat64be
-      putByteArray len bs = put len >> putByteString bs
+      putByteArray len bs = put len >> mapM_ put (elems bs)
       putString str       = let bs = UTF8.fromString str 
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs

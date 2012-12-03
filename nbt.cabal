@@ -1,5 +1,5 @@
 Name:                nbt
-Version:             0.3
+Version:             0.4
 Synopsis:            A parser/serializer for Minecraft's Named Binary Tag (NBT) data format.
 Description:         This package includes a data type for the NBT file format, notably used to represent saved data in Minecraft.
 Homepage:            https://github.com/acfoltzer/nbt
@@ -31,5 +31,6 @@ Library
   Build-depends:       base == 4.*, 
                        bytestring == 0.9.*,
                        cereal >= 0.3.4 && < 0.4,
-                       utf8-string == 0.3.*
+                       utf8-string == 0.3.*,
+                       array == 0.4.*
   ghc-options:         -Wall 

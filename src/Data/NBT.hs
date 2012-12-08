@@ -36,6 +36,8 @@ import Data.Serialize.IEEE754
 import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Ix ( Ix (rangeSize) )
+import Data.Array.IArray ( IArray (bounds) )
 import Data.Array.Unboxed ( UArray, listArray, elems )
 
 import Control.Applicative ( (<$>) )
@@ -71,11 +73,11 @@ data NBT = EndTag
          | LongTag      (Maybe String) Int64
          | FloatTag     (Maybe String) Float
          | DoubleTag    (Maybe String) Double
-         | ByteArrayTag (Maybe String) Int32 (UArray Int32 Int8)
+         | ByteArrayTag (Maybe String) (UArray Int32 Int8)
          | StringTag    (Maybe String) Int16 String
          | ListTag      (Maybe String) TagType Int32 [NBT]
          | CompoundTag  (Maybe String) [NBT]
-         | IntArrayTag  (Maybe String) Int32 (UArray Int32 Int32)
+         | IntArrayTag  (Maybe String) (UArray Int32 Int32)
            deriving (Show, Eq)
 
 instance Serialize NBT where
@@ -111,7 +113,7 @@ instance Serialize NBT where
       getDouble n = DoubleTag n <$> getFloat64be
       getByteArray n = do
         len <- get :: Get Int32
-        ByteArrayTag n len <$> getArrayElements len
+        ByteArrayTag n <$> getArrayElements len
       getString n = do
         len <- get :: Get Int16
         StringTag n len <$> UTF8.toString 
@@ -145,7 +147,7 @@ instance Serialize NBT where
           _ -> get >>= \tag -> (tag :) <$> getCompoundElements
       getIntArray n = do
         len <- get :: Get Int32
-        IntArrayTag n len <$> getArrayElements len
+        IntArrayTag n <$> getArrayElements len
       getArrayElements len = do
         elts <- replicateM (fromIntegral len) get
         return $ listArray (0, len - 1) elts
@@ -165,16 +167,16 @@ instance Serialize NBT where
         put FloatType >> putName n >> putFloat f
       DoubleTag (Just n) d ->
         put DoubleType >> putName n >> putDouble d
-      ByteArrayTag (Just n) len bs ->
-        put ByteArrayType >> putName n >> putByteArray len bs
+      ByteArrayTag (Just n) bs ->
+        put ByteArrayType >> putName n >> putByteArray bs
       StringTag (Just n) _len str ->
         put StringType >> putName n >> putString str
       ListTag (Just n) ty len ts ->
         put ListType >> putName n >> putList ty len ts
       CompoundTag (Just n) ts ->
         put CompoundType >> putName n >> putCompound ts
-      IntArrayTag (Just n) ts is ->
-        put IntArrayType >> putName n >> putIntArray ts is
+      IntArrayTag (Just n) is ->
+        put IntArrayType >> putName n >> putIntArray is
       -- unnamed cases
       -- EndTag can't be unnamed
       ByteTag Nothing b           -> putByte b
@@ -183,11 +185,11 @@ instance Serialize NBT where
       LongTag Nothing l           -> putLong l
       FloatTag Nothing f          -> putFloat f
       DoubleTag Nothing d         -> putDouble d
-      ByteArrayTag Nothing len bs -> putByteArray len bs
+      ByteArrayTag Nothing bs     -> putByteArray bs
       StringTag Nothing _len str  -> putString str
       ListTag Nothing ty len ts   -> putList ty len ts
       CompoundTag Nothing ts      -> putCompound ts
-      IntArrayTag Nothing len is  -> putIntArray len is
+      IntArrayTag Nothing is      -> putIntArray is
     where
       -- name and payload helpers
       putName             = putString
@@ -197,12 +199,13 @@ instance Serialize NBT where
       putLong             = put
       putFloat            = putFloat32be
       putDouble           = putFloat64be
-      putByteArray len bs = put len >> mapM_ put (elems bs)
+      putByteArray bs     = put (int32ArraySize bs) >> mapM_ put (elems bs)
       putString str       = let bs = UTF8.fromString str 
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
       putCompound ts      = forM_ ts put >> put EndTag
-      putIntArray len is  = put len >> mapM_ put (elems is)
+      putIntArray is      = put (int32ArraySize is) >> mapM_ put (elems is)
 
-
+      int32ArraySize :: (IArray a e) => a Int32 e -> Int32
+      int32ArraySize = fromIntegral . rangeSize . bounds

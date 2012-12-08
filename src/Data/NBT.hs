@@ -103,7 +103,7 @@ instance Serialize NBT where
         strTag <- unnamed getString
         case strTag of
           StringTag Nothing _ str -> return $ Just str
-          _ -> error "found tag with unparseable name"
+          _ -> fail "found tag with unparseable name"
       getByte n   = ByteTag n <$> get
       getShort n  = ShortTag n <$> get
       getInt n    = IntTag n <$> get

@@ -37,7 +37,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
 import Data.Int ( Int8, Int16, Int32, Int64 )
 import Data.Ix ( Ix (rangeSize) )
-import Data.Array.IArray ( IArray (bounds) )
+import Data.Array.IArray ( Array, IArray (bounds) )
 import Data.Array.Unboxed ( UArray, listArray, elems )
 
 import Control.Applicative ( (<$>) )
@@ -75,7 +75,7 @@ data NBT = EndTag
          | DoubleTag    (Maybe String) Double
          | ByteArrayTag (Maybe String) (UArray Int32 Int8)
          | StringTag    (Maybe String) Int16 String
-         | ListTag      (Maybe String) TagType Int32 [NBT]
+         | ListTag      (Maybe String) TagType (Array Int32 NBT)
          | CompoundTag  (Maybe String) [NBT]
          | IntArrayTag  (Maybe String) (UArray Int32 Int32)
            deriving (Show, Eq)
@@ -121,8 +121,10 @@ instance Serialize NBT where
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
-        ListTag n ty len <$>
-          replicateM (toEnum $ fromEnum len) (getListElement ty)
+        ListTag n ty <$> getListElements len (getListElement ty)
+      getListElements len getter = do
+        elts <- replicateM (fromIntegral len) getter
+        return $ listArray (0, len - 1) elts
       getListElement ty = 
         case ty of
           EndType       -> error "TAG_End can't appear in a list"
@@ -171,8 +173,8 @@ instance Serialize NBT where
         put ByteArrayType >> putName n >> putByteArray bs
       StringTag (Just n) _len str ->
         put StringType >> putName n >> putString str
-      ListTag (Just n) ty len ts ->
-        put ListType >> putName n >> putList ty len ts
+      ListTag (Just n) ty ts ->
+        put ListType >> putName n >> putList ty ts
       CompoundTag (Just n) ts ->
         put CompoundType >> putName n >> putCompound ts
       IntArrayTag (Just n) is ->
@@ -187,7 +189,7 @@ instance Serialize NBT where
       DoubleTag Nothing d         -> putDouble d
       ByteArrayTag Nothing bs     -> putByteArray bs
       StringTag Nothing _len str  -> putString str
-      ListTag Nothing ty len ts   -> putList ty len ts
+      ListTag Nothing ty ts       -> putList ty ts
       CompoundTag Nothing ts      -> putCompound ts
       IntArrayTag Nothing is      -> putIntArray is
     where
@@ -203,7 +205,7 @@ instance Serialize NBT where
       putString str       = let bs = UTF8.fromString str 
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs
-      putList ty len ts   = put ty >> put len >> forM_ ts put
+      putList ty ts       = put ty >> put (int32ArraySize ts) >> mapM_ put (elems ts)
       putCompound ts      = forM_ ts put >> put EndTag
       putIntArray is      = put (int32ArraySize is) >> mapM_ put (elems is)
 

@@ -66,8 +66,7 @@ instance Serialize TagType where
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
 -- when serialized, neither the name nor the type tag will be put.
-data NBT = EndTag
-         | ByteTag      (Maybe String) Int8
+data NBT = ByteTag      (Maybe String) Int8
          | ShortTag     (Maybe String) Int16
          | IntTag       (Maybe String) Int32
          | LongTag      (Maybe String) Int64
@@ -83,7 +82,7 @@ data NBT = EndTag
 instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
-      EndType       -> return EndTag
+      EndType       -> fail "stray TAG_End"
       ByteType      -> named getByte
       ShortType     -> named getShort
       IntType       -> named getInt
@@ -127,7 +126,7 @@ instance Serialize NBT where
         return $ listArray (0, len - 1) elts
       getListElement ty = 
         case ty of
-          EndType       -> error "TAG_End can't appear in a list"
+          EndType       -> fail "TAG_End can't appear in a list"
           ByteType      -> unnamed getByte
           ShortType     -> unnamed getShort
           IntType       -> unnamed getInt
@@ -156,7 +155,6 @@ instance Serialize NBT where
   put tag = 
     case tag of     
       -- named cases      
-      EndTag -> put EndType
       ByteTag (Just n) b -> 
         put ByteType >> putName n >> putByte b
       ShortTag (Just n) s -> 
@@ -180,7 +178,6 @@ instance Serialize NBT where
       IntArrayTag (Just n) is ->
         put IntArrayType >> putName n >> putIntArray is
       -- unnamed cases
-      -- EndTag can't be unnamed
       ByteTag Nothing b           -> putByte b
       ShortTag Nothing s          -> putShort s
       IntTag Nothing i            -> putInt i
@@ -206,7 +203,7 @@ instance Serialize NBT where
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs
       putList ty ts       = put ty >> put (int32ArraySize ts) >> mapM_ put (elems ts)
-      putCompound ts      = forM_ ts put >> put EndTag
+      putCompound ts      = forM_ ts put >> put EndType
       putIntArray is      = put (int32ArraySize is) >> mapM_ put (elems is)
 
       int32ArraySize :: (IArray a e) => a Int32 e -> Int32

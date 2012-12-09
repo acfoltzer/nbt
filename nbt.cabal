@@ -33,3 +33,20 @@ Library
                        cereal >= 0.3.4 && < 0.4,
                        utf8-string == 0.3.*
   ghc-options:         -Wall 
+
+Test-suite tests
+  type: exitcode-stdio-1.0
+  main-is: Tests.hs
+  hs-source-dirs: test
+  build-depends:
+    base,
+    HUnit == 1.2.*,
+    QuickCheck,
+    test-framework,
+    test-framework-hunit,
+    test-framework-quickcheck2,
+    nbt,
+    bytestring,
+    cereal,
+    utf8-string,
+    zlib

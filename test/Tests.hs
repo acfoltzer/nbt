@@ -65,7 +65,7 @@ prop_NBTroundTrip :: NBT -> Bool
 prop_NBTroundTrip nbt = eitherErr (decode (encode nbt)) == nbt
 
 testWorld = do
-  fileL <- GZip.decompress <$> L.readFile "testWorld/level.dat"
+  fileL <- GZip.decompress <$> L.readFile "test/testWorld/level.dat"
   let file = B.pack (L.unpack fileL)
       dec = eitherErr (decode file) :: NBT
       enc = encode dec

@@ -19,29 +19,19 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Data.Serialize ( 
-    Serialize (..)
-  , getWord8
-  , putWord8 
-  )
-import Data.Serialize.Get ( 
-    Get
-  , getByteString
-  , lookAhead
-  , skip
-  )
-import Data.Serialize.Put ( putByteString )
+import Control.Applicative    ((<$>))
+import Control.Monad          (forM_, replicateM)
+import Data.Array.IArray      (Array, IArray (bounds))
+import Data.Array.Unboxed     (UArray, listArray, elems)
+import Data.Int               (Int16, Int32, Int64, Int8)
+import Data.Ix                (Ix (rangeSize))
+import Data.Serialize         (Serialize (..), getWord8, putWord8)
+import Data.Serialize.Get     (Get, getByteString, lookAhead, skip)
 import Data.Serialize.IEEE754
+import Data.Serialize.Put     (putByteString)
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
-import Data.Int ( Int8, Int16, Int32, Int64 )
-import Data.Ix ( Ix (rangeSize) )
-import Data.Array.IArray ( Array, IArray (bounds) )
-import Data.Array.Unboxed ( UArray, listArray, elems )
-
-import Control.Applicative ( (<$>) )
-import Control.Monad ( forM_, replicateM )
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.UTF8   as UTF8
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
@@ -115,7 +105,7 @@ instance Serialize NBT where
         ByteArrayTag n <$> getArrayElements len
       getString n = do
         len <- get :: Get Int16
-        StringTag n len <$> UTF8.toString 
+        StringTag n len <$> UTF8.toString
                         <$> getByteString (toEnum $ fromEnum len)
       getList n = do
         ty  <- get :: Get TagType
@@ -124,7 +114,7 @@ instance Serialize NBT where
       getListElements len getter = do
         elts <- replicateM (fromIntegral len) getter
         return $ listArray (0, len - 1) elts
-      getListElement ty = 
+      getListElement ty =
         case ty of
           EndType       -> fail "TAG_End can't appear in a list"
           ByteType      -> unnamed getByte
@@ -155,11 +145,11 @@ instance Serialize NBT where
   put tag = 
     case tag of     
       -- named cases      
-      ByteTag (Just n) b -> 
+      ByteTag (Just n) b ->
         put ByteType >> putName n >> putByte b
-      ShortTag (Just n) s -> 
+      ShortTag (Just n) s ->
         put ShortType >> putName n >> putShort s
-      IntTag (Just n) i -> 
+      IntTag (Just n) i ->
         put IntType >> putName n >> putInt i
       LongTag (Just n) l ->
         put LongType >> putName n >> putLong l

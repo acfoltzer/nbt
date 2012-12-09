@@ -63,7 +63,7 @@ data NBT = ByteTag      (Maybe String) Int8
          | FloatTag     (Maybe String) Float
          | DoubleTag    (Maybe String) Double
          | ByteArrayTag (Maybe String) (UArray Int32 Int8)
-         | StringTag    (Maybe String) Int16 String
+         | StringTag    (Maybe String) String
          | ListTag      (Maybe String) TagType (Array Int32 NBT)
          | CompoundTag  (Maybe String) [NBT]
          | IntArrayTag  (Maybe String) (UArray Int32 Int32)
@@ -92,7 +92,7 @@ instance Serialize NBT where
       getName = do
         strTag <- unnamed getString
         case strTag of
-          StringTag Nothing _ str -> return $ Just str
+          StringTag Nothing str -> return $ Just str
           _ -> fail "found tag with unparseable name"
       getByte n   = ByteTag n <$> get
       getShort n  = ShortTag n <$> get
@@ -105,8 +105,7 @@ instance Serialize NBT where
         ByteArrayTag n <$> getArrayElements len
       getString n = do
         len <- get :: Get Int16
-        StringTag n len <$> UTF8.toString
-                        <$> getByteString (toEnum $ fromEnum len)
+        StringTag n . UTF8.toString <$> getByteString (fromIntegral len)
       getList n = do
         ty  <- get :: Get TagType
         len <- get :: Get Int32
@@ -159,7 +158,7 @@ instance Serialize NBT where
         put DoubleType >> putName n >> putDouble d
       ByteArrayTag (Just n) bs ->
         put ByteArrayType >> putName n >> putByteArray bs
-      StringTag (Just n) _len str ->
+      StringTag (Just n) str ->
         put StringType >> putName n >> putString str
       ListTag (Just n) ty ts ->
         put ListType >> putName n >> putList ty ts
@@ -175,7 +174,7 @@ instance Serialize NBT where
       FloatTag Nothing f          -> putFloat f
       DoubleTag Nothing d         -> putDouble d
       ByteArrayTag Nothing bs     -> putByteArray bs
-      StringTag Nothing _len str  -> putString str
+      StringTag Nothing str       -> putString str
       ListTag Nothing ty ts       -> putList ty ts
       CompoundTag Nothing ts      -> putCompound ts
       IntArrayTag Nothing is      -> putIntArray is

@@ -9,7 +9,6 @@ import qualified Data.Array.IArray                    as IA
 import           Data.Array.Unboxed                   (listArray)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as L
-import qualified Data.ByteString.UTF8                 as UTF8 (fromString)
 import           Data.Int                             (Int32)
 import           Data.NBT
 import           Data.Serialize                       (decode, encode)
@@ -51,12 +50,11 @@ instance Arbitrary NBT where
           StringType -> do
             n <- choose (0, 100) :: Gen Int
             str <- replicateM (fromIntegral n) arbitrary
-            let len' = (toEnum . fromEnum) (B.length (UTF8.fromString str))
-            return $ StringTag name len' str
+            return $ StringTag name str
           ListType -> do
             subTy <- arbitrary `suchThat` (EndType /=)
             len <- fromIntegral <$> choose (0, 11 :: Int) :: Gen Int32
-            ts <- replicateM (toEnum $ fromEnum len) (mkArb subTy Nothing)
+            ts <- replicateM (fromIntegral len) (mkArb subTy Nothing)
             return $ ListTag name subTy . IA.listArray (0, len - 1) $ ts
           CompoundType -> do
             n <- choose (0, 11)

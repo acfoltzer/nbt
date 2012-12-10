@@ -47,8 +47,8 @@ Test-Suite round-trip
                        utf8-string == 0.3.*,
                        HUnit == 1.2.*,
                        QuickCheck >= 2.4 && < 3.0,
-                       test-framework >= 0.4,
-                       test-framework-quickcheck2 == 0.2.*,
-                       test-framework-hunit == 0.2.*,
+                       test-framework,
+                       test-framework-quickcheck2,
+                       test-framework-hunit,
                        nbt == 0.4,
                        array >= 0.4

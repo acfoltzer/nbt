@@ -197,3 +197,29 @@ instance Serialize NBT where
 
       int32ArraySize :: (IArray a e) => a Int32 e -> Int32
       int32ArraySize = fromIntegral . rangeSize . bounds
+
+typeOf :: NBT -> TagType
+typeOf (ByteTag _ _)        = ByteType
+typeOf (ShortTag _ _)       = ShortType
+typeOf (IntTag _ _)         = IntType
+typeOf (LongTag _ _)        = LongType
+typeOf (FloatTag _ _)       = FloatType
+typeOf (DoubleTag _ _)      = DoubleType
+typeOf (ByteArrayTag _ _)   = ByteArrayType
+typeOf (StringTag _ _)      = StringType
+typeOf (ListTag _ _ _)      = ListType
+typeOf (CompoundTag _ _)    = CompoundType
+typeOf (IntArrayTag _ _)    = IntArrayType
+
+nameOf :: NBT -> Maybe String
+nameOf (ByteTag n _)        = n
+nameOf (ShortTag n _)       = n
+nameOf (IntTag n _)         = n
+nameOf (LongTag n _)        = n
+nameOf (FloatTag n _)       = n
+nameOf (DoubleTag n _)      = n
+nameOf (ByteArrayTag n _)   = n
+nameOf (StringTag n _)      = n
+nameOf (ListTag n _ _)      = n
+nameOf (CompoundTag n _)    = n
+nameOf (IntArrayTag n _)    = n

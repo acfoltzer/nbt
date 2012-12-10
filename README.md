@@ -1,3 +1,3 @@
-[![Build Status](https://secure.travis-ci.org/tinctorius/nbt.png?branch=master)](https://travis-ci.org/tinctorius/nbt)
+[![Build Status](https://secure.travis-ci.org/Tinctorius/nbt.png?branch=master)](https://travis-ci.org/Tinctorius/nbt)
 
 ![](http://github.com/tinctorius/nbt/raw/master/img/logo.png)

@@ -35,8 +35,7 @@ import qualified Data.ByteString.UTF8   as UTF8
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
-data TagType = EndType
-             | ByteType
+data TagType = ByteType
              | ShortType
              | IntType
              | LongType
@@ -50,8 +49,8 @@ data TagType = EndType
                deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
-    get = fmap (toEnum . fromIntegral) getWord8
-    put = putWord8 . fromIntegral . fromEnum
+    get = fmap (toEnum . pred . fromIntegral) getWord8
+    put = putWord8 . fromIntegral . succ . fromEnum
 
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
@@ -72,7 +71,6 @@ data NBT = ByteTag      (Maybe String) Int8
 instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
-      EndType       -> fail "stray TAG_End"
       ByteType      -> named getByte
       ShortType     -> named getShort
       IntType       -> named getInt
@@ -115,7 +113,6 @@ instance Serialize NBT where
         return $ listArray (0, len - 1) elts
       getListElement ty =
         case ty of
-          EndType       -> fail "TAG_End can't appear in a list"
           ByteType      -> unnamed getByte
           ShortType     -> unnamed getShort
           IntType       -> unnamed getInt
@@ -129,12 +126,12 @@ instance Serialize NBT where
           IntArrayType  -> unnamed getIntArray
       getCompound n = CompoundTag n <$> getCompoundElements
       getCompoundElements = do
-        ty <- lookAhead get
-        case ty of
-          -- if we see an end tag, drop it and end the list
-          EndType -> skip 1 >> return []
-          -- otherwise keep reading
-          _ -> get >>= \tag -> (tag :) <$> getCompoundElements
+        ty <- lookAhead (get :: Get Int8)
+        if ty == 0
+            -- if we see an end tag, drop it and end the list
+            then skip 1 >> return []
+            -- otherwise keep reading
+            else get >>= \tag -> (tag :) <$> getCompoundElements
       getIntArray n = do
         len <- get :: Get Int32
         IntArrayTag n <$> getArrayElements len
@@ -192,7 +189,7 @@ instance Serialize NBT where
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs
       putList ty ts       = put ty >> put (int32ArraySize ts) >> mapM_ put (elems ts)
-      putCompound ts      = forM_ ts put >> put EndType
+      putCompound ts      = forM_ ts put >> put (0 :: Int8)
       putIntArray is      = put (int32ArraySize is) >> mapM_ put (elems is)
 
       int32ArraySize :: (IArray a e) => a Int32 e -> Int32

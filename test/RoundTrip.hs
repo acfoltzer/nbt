@@ -20,7 +20,7 @@ import           Test.HUnit
 import           Test.QuickCheck
 
 instance Arbitrary TagType where
-    arbitrary = toEnum <$> choose (0, 11)
+    arbitrary = toEnum <$> choose (0, 10)
 
 eitherErr :: (Either String a -> a)
 eitherErr = either error id
@@ -30,13 +30,12 @@ prop_TagType ty = eitherErr (decode (encode ty)) == ty
 
 instance Arbitrary NBT where
   arbitrary = do
-    rootType <- arbitrary `suchThat` (EndType /=)
+    rootType <- arbitrary
     name <- Just <$> arbitrary
     mkArb rootType name
     where
       mkArb ty name =
         case ty of
-          EndType -> error "EndType shouldn't be generated"
           ByteType -> ByteTag name <$> arbitrary
           ShortType -> ShortTag name <$> arbitrary
           IntType -> IntTag name <$> arbitrary
@@ -52,7 +51,7 @@ instance Arbitrary NBT where
             str <- replicateM (fromIntegral n) arbitrary
             return $ StringTag name str
           ListType -> do
-            subTy <- arbitrary `suchThat` (EndType /=)
+            subTy <- arbitrary
             len <- fromIntegral <$> choose (0, 11 :: Int) :: Gen Int32
             ts <- replicateM (fromIntegral len) (mkArb subTy Nothing)
             return $ ListTag name subTy . IA.listArray (0, len - 1) $ ts

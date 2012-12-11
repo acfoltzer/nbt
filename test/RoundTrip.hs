@@ -29,39 +29,36 @@ prop_TagType :: TagType -> Bool
 prop_TagType ty = eitherErr (decode (encode ty)) == ty
 
 instance Arbitrary NBT where
-  arbitrary = do
-    rootType <- arbitrary
-    name <- Just <$> arbitrary
-    mkArb rootType name
+  arbitrary = arbitrary >>= \(ty, nm) -> NBT nm <$> mkArb ty
     where
-      mkArb ty name =
+      mkArb ty =
         case ty of
-          ByteType -> ByteTag name <$> arbitrary
-          ShortType -> ShortTag name <$> arbitrary
-          IntType -> IntTag name <$> arbitrary
-          LongType -> LongTag name <$> arbitrary
-          FloatType -> FloatTag name <$> arbitrary
-          DoubleType -> DoubleTag name <$> arbitrary
+          ByteType -> ByteTag <$> arbitrary
+          ShortType -> ShortTag <$> arbitrary
+          IntType -> IntTag <$> arbitrary
+          LongType -> LongTag <$> arbitrary
+          FloatType -> FloatTag <$> arbitrary
+          DoubleType -> DoubleTag <$> arbitrary
           ByteArrayType -> do
             len <- fromIntegral <$> choose (0, 100 :: Int) :: Gen Int32
             ws <- replicateM (fromIntegral len) arbitrary
-            return $ ByteArrayTag name . listArray (0, len - 1) $ ws
+            return $ ByteArrayTag . listArray (0, len - 1) $ ws
           StringType -> do
             n <- choose (0, 100) :: Gen Int
             str <- replicateM (fromIntegral n) arbitrary
-            return $ StringTag name str
+            return $ StringTag str
           ListType -> do
             subTy <- arbitrary
             len <- fromIntegral <$> choose (0, 11 :: Int) :: Gen Int32
-            ts <- replicateM (fromIntegral len) (mkArb subTy Nothing)
-            return $ ListTag name subTy . IA.listArray (0, len - 1) $ ts
+            ts <- replicateM (fromIntegral len) (mkArb subTy)
+            return $ ListTag subTy . IA.listArray (0, len - 1) $ ts
           CompoundType -> do
             n <- choose (0, 11)
-            ts <- replicateM n (arbitrary :: Gen NBT)
-            return $ CompoundTag name ts
+            ts <- replicateM n arbitrary
+            return $ CompoundTag ts
           IntArrayType -> do
             len <- fromIntegral <$> choose (0, 100 :: Int) :: Gen Int32
-            IntArrayTag name
+            IntArrayTag
               . listArray (0, len-1)
               <$> (vector $ fromIntegral len)
 

@@ -29,9 +29,10 @@ import Data.Serialize         (Serialize (..), getWord8, putWord8)
 import Data.Serialize.Get     (Get, getByteString, lookAhead, skip)
 import Data.Serialize.IEEE754
 import Data.Serialize.Put     (Put, putByteString)
+import Data.Text.Encoding     (encodeUtf8, decodeUtf8)
 
 import qualified Data.ByteString        as B
-import qualified Data.ByteString.UTF8   as UTF8
+import qualified Data.Text              as T
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
@@ -55,7 +56,7 @@ instance Serialize TagType where
 
 -- | Primitive representation of NBT data. This type contains only the data
 -- part, since named nodes can only exist inside compound nodes.
-data NBT = NBT String NbtContents
+data NBT = NBT T.Text NbtContents
     deriving (Show, Eq)
 
 data NbtContents
@@ -66,7 +67,7 @@ data NbtContents
     | FloatTag     Float
     | DoubleTag    Double
     | ByteArrayTag (UArray Int32 Int8)
-    | StringTag    String
+    | StringTag    T.Text
     | ListTag      TagType (Array Int32 NbtContents)
     | CompoundTag  [NBT]
     | IntArrayTag  (UArray Int32 Int32)
@@ -84,7 +85,7 @@ getByType ByteArrayType = do
     ByteArrayTag <$> getArrayElements len get
 getByType StringType = do
     len <- get :: Get Int16
-    StringTag . UTF8.toString <$> getByteString (fromIntegral len)
+    StringTag . decodeUtf8 <$> getByteString (fromIntegral len)
 getByType ListType = do
     subType <- get :: Get TagType
     len <- get :: Get Int32
@@ -117,7 +118,7 @@ putContents tag = case tag of
     FloatTag f          -> putFloat32be f
     DoubleTag d         -> putFloat64be d
     ByteArrayTag bs     -> put (int32ArraySize bs) >> mapM_ put (elems bs)
-    StringTag str       -> let bs = UTF8.fromString str 
+    StringTag str       -> let bs = encodeUtf8 str 
                                len = fromIntegral (B.length bs)
                            in put (len :: Int16) >> putByteString bs
     ListTag ty ts       -> put ty >> put (int32ArraySize ts) >> mapM_ putContents (elems ts)

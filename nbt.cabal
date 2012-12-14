@@ -31,7 +31,7 @@ Library
   Build-depends:       base == 4.*,
                        bytestring == 0.9.*,
                        cereal >= 0.3.4 && < 0.4,
-                       utf8-string == 0.3.*,
+                       text,
                        array >= 0.4
   ghc-options:         -Wall
 
@@ -44,7 +44,7 @@ Test-Suite round-trip
                        bytestring == 0.9.*,
                        cereal >= 0.3.4 && < 0.4,
                        zlib == 0.5.*,
-                       utf8-string == 0.3.*,
+                       text,
                        HUnit == 1.2.*,
                        QuickCheck >= 2.4 && < 3.0,
                        test-framework,

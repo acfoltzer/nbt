@@ -12,6 +12,7 @@ import qualified Data.ByteString.Lazy                 as L
 import           Data.Int                             (Int32)
 import           Data.NBT
 import           Data.Serialize                       (decode, encode)
+import qualified Data.Text                            as T
 import           Paths_nbt                            (getDataFileName)
 import           Test.Framework
 import           Test.Framework.Providers.HUnit
@@ -29,7 +30,7 @@ prop_TagType :: TagType -> Bool
 prop_TagType ty = eitherErr (decode (encode ty)) == ty
 
 instance Arbitrary NBT where
-  arbitrary = arbitrary >>= \(ty, nm) -> NBT nm <$> mkArb ty
+  arbitrary = arbitrary >>= \(ty, nm) -> NBT (T.pack nm) <$> mkArb ty
     where
       mkArb ty =
         case ty of
@@ -45,7 +46,7 @@ instance Arbitrary NBT where
             return $ ByteArrayTag . listArray (0, len - 1) $ ws
           StringType -> do
             n <- choose (0, 100) :: Gen Int
-            str <- replicateM (fromIntegral n) arbitrary
+            str <- T.pack <$> replicateM (fromIntegral n) arbitrary
             return $ StringTag str
           ListType -> do
             subTy <- arbitrary

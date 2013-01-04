@@ -64,24 +64,28 @@ instance Serialize TagType where
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
 -- when serialized, neither the name nor the type tag will be put.
-data NBT = EndTag
-         | ByteTag      (Maybe String) Int8
-         | ShortTag     (Maybe String) Int16
-         | IntTag       (Maybe String) Int32
-         | LongTag      (Maybe String) Int64
-         | FloatTag     (Maybe String) Float
-         | DoubleTag    (Maybe String) Double
-         | ByteArrayTag (Maybe String) Int32 (UArray Int32 Int8)
-         | StringTag    (Maybe String) Int16 String
-         | ListTag      (Maybe String) TagType Int32 [NBT]
-         | CompoundTag  (Maybe String) [NBT]
-         | IntArrayTag  (Maybe String) Int32 (UArray Int32 Int32)
+data NBT = EndTag       { tagName :: Maybe String }
+         | ByteTag      { tagName :: Maybe String, byteTag :: Int8 }
+         | ShortTag     { tagName :: Maybe String, shortTag :: Int16 }
+         | IntTag       { tagName :: Maybe String, intTag :: Int32 }
+         | LongTag      { tagName :: Maybe String, longTag :: Int64 }
+         | FloatTag     { tagName :: Maybe String, floatTag :: Float }
+         | DoubleTag    { tagName :: Maybe String, doubleTag :: Double }
+         | ByteArrayTag { tagName :: Maybe String, byteArrayLength :: Int32, 
+                          byteArrayTag :: UArray Int32 Int8 }
+         | StringTag    { tagName :: Maybe String, stringLength :: Int16, 
+                          stringTag :: String }
+         | ListTag      { tagName :: Maybe String, listType :: TagType, 
+                          listLength :: Int32, listTag :: [NBT] }
+         | CompoundTag  { tagName :: Maybe String, compoundTag :: [NBT] }
+         | IntArrayTag  { tagName :: Maybe String, intArrayLength :: Int32, 
+                          intArrayTag :: UArray Int32 Int32 }
            deriving (Show, Eq)
 
 instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
-      EndType       -> return EndTag
+      EndType       -> return (EndTag Nothing)
       ByteType      -> named getByte
       ShortType     -> named getShort
       IntType       -> named getInt
@@ -151,8 +155,10 @@ instance Serialize NBT where
         return $ listArray (0, len - 1) elts
   put tag = 
     case tag of     
+      -- EndTag can't be named
+      EndTag Nothing -> put EndType
+      EndTag _ -> error "named end tag in NBT"
       -- named cases      
-      EndTag -> put EndType
       ByteTag (Just n) b -> 
         put ByteType >> putName n >> putByte b
       ShortTag (Just n) s -> 
@@ -176,7 +182,6 @@ instance Serialize NBT where
       IntArrayTag (Just n) ts is ->
         put IntArrayType >> putName n >> putIntArray ts is
       -- unnamed cases
-      -- EndTag can't be unnamed
       ByteTag Nothing b           -> putByte b
       ShortTag Nothing s          -> putShort s
       IntTag Nothing i            -> putInt i
@@ -202,7 +207,5 @@ instance Serialize NBT where
                                 len = fromIntegral (B.length bs)
                             in put (len :: Int16) >> putByteString bs
       putList ty len ts   = put ty >> put len >> forM_ ts put
-      putCompound ts      = forM_ ts put >> put EndTag
+      putCompound ts      = forM_ ts put >> put EndType
       putIntArray len is  = put len >> mapM_ put (elems is)
-
-

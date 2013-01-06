@@ -64,7 +64,7 @@ instance Serialize TagType where
 -- | Primitive representation of NBT data. This type contains both named
 -- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
 -- when serialized, neither the name nor the type tag will be put.
-data NBT = EndTag       { tagName :: Maybe String }
+data NBT = EndTag
          | ByteTag      { tagName :: Maybe String, byteTag :: Int8 }
          | ShortTag     { tagName :: Maybe String, shortTag :: Int16 }
          | IntTag       { tagName :: Maybe String, intTag :: Int32 }
@@ -85,7 +85,7 @@ data NBT = EndTag       { tagName :: Maybe String }
 instance Serialize NBT where
   get = get >>= \ty ->
     case ty of
-      EndType       -> return (EndTag Nothing)
+      EndType       -> return EndTag
       ByteType      -> named getByte
       ShortType     -> named getShort
       IntType       -> named getInt
@@ -156,8 +156,7 @@ instance Serialize NBT where
   put tag = 
     case tag of     
       -- EndTag can't be named
-      EndTag Nothing -> put EndType
-      EndTag _ -> error "named end tag in NBT"
+      EndTag -> put EndType
       -- named cases      
       ByteTag (Just n) b -> 
         put ByteType >> putName n >> putByte b

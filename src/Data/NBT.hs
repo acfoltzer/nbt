@@ -19,175 +19,135 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Data.Serialize ( 
-    Serialize (..)
-  , getWord8
-  , putWord8 
-  )
-import Data.Serialize.Get ( 
-    Get
-  , getByteString
-  , lookAhead
-  , skip
-  )
-import Data.Serialize.Put ( putByteString )
+import Control.Applicative    ((<$>))
+import Control.Monad          (forM_, replicateM)
+import Data.Array.IArray      (Array, IArray (bounds))
+import Data.Array.Unboxed     (UArray, listArray, elems)
+import Data.Int               (Int16, Int32, Int64, Int8)
+import Data.Ix                (Ix (rangeSize))
+import Data.Serialize         (Serialize (..), getWord8, putWord8)
+import Data.Serialize.Get     (Get, getByteString, lookAhead, skip)
 import Data.Serialize.IEEE754
+import Data.Serialize.Put     (Put, putByteString)
+import Data.Text.Encoding     (encodeUtf8, decodeUtf8)
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.UTF8 as UTF8 ( fromString, toString )
-import Data.Int ( Int8, Int16, Int32, Int64 )
-
-import Control.Applicative ( (<$>) )
-import Control.Monad ( forM_, replicateM )
+import qualified Data.ByteString        as B
+import qualified Data.Text              as T
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
-data TagType = EndType
-             | ByteType
-             | ShortType
-             | IntType
-             | LongType
-             | FloatType
-             | DoubleType
-             | ByteArrayType
-             | StringType
-             | ListType
-             | CompoundType
-               deriving (Show, Eq, Enum)
+data TagType
+    = ByteType
+    | ShortType
+    | IntType
+    | LongType
+    | FloatType
+    | DoubleType
+    | ByteArrayType
+    | StringType
+    | ListType
+    | CompoundType
+    | IntArrayType
+    deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
-    get = fmap (toEnum . fromIntegral) getWord8
-    put = putWord8 . fromIntegral . fromEnum
+    get = fmap (toEnum . pred . fromIntegral) getWord8
+    put = putWord8 . fromIntegral . succ . fromEnum
 
--- | Primitive representation of NBT data. This type contains both named
--- and unnamed variants; a 'Nothing' name signifies an unnamed tag, so
--- when serialized, neither the name nor the type tag will be put.
-data NBT = EndTag
-         | ByteTag      (Maybe String) Int8
-         | ShortTag     (Maybe String) Int16
-         | IntTag       (Maybe String) Int32
-         | LongTag      (Maybe String) Int64
-         | FloatTag     (Maybe String) Float
-         | DoubleTag    (Maybe String) Double
-         | ByteArrayTag (Maybe String) Int32 B.ByteString
-         | StringTag    (Maybe String) Int16 String
-         | ListTag      (Maybe String) TagType Int32 [NBT]
-         | CompoundTag  (Maybe String) [NBT]
-           deriving (Show, Eq)
+-- | Primitive representation of NBT data. This type contains only the data
+-- part, since named nodes can only exist inside compound nodes.
+data NBT = NBT T.Text NbtContents
+    deriving (Show, Eq)
+
+data NbtContents
+    = ByteTag      Int8
+    | ShortTag     Int16
+    | IntTag       Int32
+    | LongTag      Int64
+    | FloatTag     Float
+    | DoubleTag    Double
+    | ByteArrayTag (UArray Int32 Int8)
+    | StringTag    T.Text
+    | ListTag      TagType (Array Int32 NbtContents)
+    | CompoundTag  [NBT]
+    | IntArrayTag  (UArray Int32 Int32)
+    deriving (Show, Eq)
+
+getByType :: TagType -> Get NbtContents
+getByType ByteType = ByteTag <$> get
+getByType ShortType = ShortTag <$> get
+getByType IntType = IntTag <$> get
+getByType LongType = LongTag <$> get
+getByType FloatType = FloatTag <$> getFloat32be
+getByType DoubleType = DoubleTag <$> getFloat64be
+getByType ByteArrayType = do
+    len <- get :: Get Int32
+    ByteArrayTag <$> getArrayElements len get
+getByType StringType = do
+    len <- get :: Get Int16
+    StringTag . decodeUtf8 <$> getByteString (fromIntegral len)
+getByType ListType = do
+    subType <- get :: Get TagType
+    len <- get :: Get Int32
+    ListTag subType <$> getArrayElements len (getByType subType)
+getByType CompoundType = CompoundTag <$> getCompoundElements
+  where
+    getCompoundElements = do
+        ty <- lookAhead (get :: Get Int8)
+        if ty == 0
+            -- if we see an end tag, drop it and end the list
+            then skip 1 >> return []
+            -- otherwise keep reading
+            else get >>= \tag -> (tag :) <$> getCompoundElements
+getByType IntArrayType = do
+    len <- get :: Get Int32
+    IntArrayTag <$> getArrayElements len get
+
+getArrayElements :: (IArray arr a, Integral len, Ix len)
+    => len -> Get a -> Get (arr len a)
+getArrayElements len getter = do
+    elts <- replicateM (fromIntegral len) getter
+    return $ listArray (0, len - 1) elts
+
+putContents :: NbtContents -> Put
+putContents tag = case tag of
+    ByteTag b           -> put b
+    ShortTag s          -> put s
+    IntTag i            -> put i
+    LongTag l           -> put l
+    FloatTag f          -> putFloat32be f
+    DoubleTag d         -> putFloat64be d
+    ByteArrayTag bs     -> put (int32ArraySize bs) >> mapM_ put (elems bs)
+    StringTag str       -> let bs = encodeUtf8 str 
+                               len = fromIntegral (B.length bs)
+                           in put (len :: Int16) >> putByteString bs
+    ListTag ty ts       -> put ty >> put (int32ArraySize ts) >> mapM_ putContents (elems ts)
+    CompoundTag ts      -> forM_ ts put >> put (0 :: Int8)
+    IntArrayTag is      -> put (int32ArraySize is) >> mapM_ put (elems is)
+  where
+    int32ArraySize :: (IArray a e) => a Int32 e -> Int32
+    int32ArraySize = fromIntegral . rangeSize . bounds
 
 instance Serialize NBT where
-  get = get >>= \ty ->
-    case ty of
-      EndType       -> return EndTag
-      ByteType      -> named getByte
-      ShortType     -> named getShort
-      IntType       -> named getInt
-      LongType      -> named getLong
-      FloatType     -> named getFloat
-      DoubleType    -> named getDouble
-      ByteArrayType -> named getByteArray
-      StringType    -> named getString
-      ListType      -> named getList
-      CompoundType  -> named getCompound
-    where
-      -- name combinators
-      named f = getName >>= f
-      unnamed f = f Nothing
-      -- name and payload readers
-      getName = do
-        strTag <- unnamed getString
-        case strTag of
-          StringTag Nothing _ str -> return $ Just str
-          _ -> error "found tag with unparseable name"
-      getByte n   = ByteTag n <$> get
-      getShort n  = ShortTag n <$> get
-      getInt n    = IntTag n <$> get
-      getLong n   = LongTag n <$> get
-      getFloat n  = FloatTag n <$> getFloat32be
-      getDouble n = DoubleTag n <$> getFloat64be
-      getByteArray n = do
-        len <- get :: Get Int32
-        ByteArrayTag n len <$> getByteString (toEnum $ fromEnum len)
-      getString n = do
-        len <- get :: Get Int16
-        StringTag n len <$> UTF8.toString 
-                        <$> getByteString (toEnum $ fromEnum len)
-      getList n = do
-        ty  <- get :: Get TagType
-        len <- get :: Get Int32
-        ListTag n ty len <$>
-          replicateM (toEnum $ fromEnum len) (getListElement ty)
-      getListElement ty = 
-        case ty of
-          EndType       -> error "TAG_End can't appear in a list"
-          ByteType      -> unnamed getByte
-          ShortType     -> unnamed getShort
-          IntType       -> unnamed getInt
-          LongType      -> unnamed getLong
-          FloatType     -> unnamed getFloat
-          DoubleType    -> unnamed getDouble
-          ByteArrayType -> unnamed getByteArray
-          StringType    -> unnamed getString
-          ListType      -> unnamed getList
-          CompoundType  -> unnamed getCompound
-      getCompound n = CompoundTag n <$> getCompoundElements
-      getCompoundElements = do
-        ty <- lookAhead get
-        case ty of
-          -- if we see an end tag, drop it and end the list
-          EndType -> skip 1 >> return []
-          -- otherwise keep reading
-          _ -> get >>= \tag -> (tag :) <$> getCompoundElements
-  put tag = 
-    case tag of     
-      -- named cases      
-      EndTag -> put EndType
-      ByteTag (Just n) b -> 
-        put ByteType >> putName n >> putByte b
-      ShortTag (Just n) s -> 
-        put ShortType >> putName n >> putShort s
-      IntTag (Just n) i -> 
-        put IntType >> putName n >> putInt i
-      LongTag (Just n) l ->
-        put LongType >> putName n >> putLong l
-      FloatTag (Just n) f ->
-        put FloatType >> putName n >> putFloat f
-      DoubleTag (Just n) d ->
-        put DoubleType >> putName n >> putDouble d
-      ByteArrayTag (Just n) len bs ->
-        put ByteArrayType >> putName n >> putByteArray len bs
-      StringTag (Just n) _len str ->
-        put StringType >> putName n >> putString str
-      ListTag (Just n) ty len ts ->
-        put ListType >> putName n >> putList ty len ts
-      CompoundTag (Just n) ts ->
-        put CompoundType >> putName n >> putCompound ts
-      -- unnamed cases
-      -- EndTag can't be unnamed
-      ByteTag Nothing b           -> putByte b
-      ShortTag Nothing s          -> putShort s
-      IntTag Nothing i            -> putInt i
-      LongTag Nothing l           -> putLong l
-      FloatTag Nothing f          -> putFloat f
-      DoubleTag Nothing d         -> putDouble d
-      ByteArrayTag Nothing len bs -> putByteArray len bs
-      StringTag Nothing _len str  -> putString str
-      ListTag Nothing ty len ts   -> putList ty len ts
-      CompoundTag Nothing ts      -> putCompound ts
-    where
-      -- name and payload helpers
-      putName             = putString
-      putByte             = put
-      putShort            = put
-      putInt              = put
-      putLong             = put
-      putFloat            = putFloat32be
-      putDouble           = putFloat64be
-      putByteArray len bs = put len >> putByteString bs
-      putString str       = let bs = UTF8.fromString str 
-                                len = fromIntegral (B.length bs)
-                            in put (len :: Int16) >> putByteString bs
-      putList ty len ts   = put ty >> put len >> forM_ ts put
-      putCompound ts      = forM_ ts put >> put EndTag
+    get = do
+        ty <- get
+        StringTag nm <- getByType StringType
+        co <- getByType ty
+        return $ NBT nm co
+    put (NBT name tag) = do
+        put (typeOf tag)
+        putContents (StringTag name)
+        putContents tag
 
-
+typeOf :: NbtContents -> TagType
+typeOf (ByteTag _)          = ByteType
+typeOf (ShortTag _)         = ShortType
+typeOf (IntTag _)           = IntType
+typeOf (LongTag _)          = LongType
+typeOf (FloatTag _)         = FloatType
+typeOf (DoubleTag _)        = DoubleType
+typeOf (ByteArrayTag _)     = ByteArrayType
+typeOf (StringTag _)        = StringType
+typeOf (ListTag _ _)        = ListType
+typeOf (CompoundTag _)      = CompoundType
+typeOf (IntArrayTag _)      = IntArrayType

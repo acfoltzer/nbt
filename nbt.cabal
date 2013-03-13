@@ -1,25 +1,25 @@
 Name:                nbt
-Version:             0.3
-Synopsis:            A parser/serializer for Minecraft's Named Binary Tag (NBT) data format.
-Description:         This package includes a data type for the NBT file format, notably used to represent saved data in Minecraft.
+Version:             0.4
+Synopsis: A parser/serializer for Minecraft's Named Binary Tag (NBT)
+  data format.
+Description: This package includes a data type for the NBT file
+  format, notably used to represent saved data in Minecraft and
+  significant parts of the Minecraft network protocol.  All twelve
+  tags of verion 19133 (needed for Anvil maps) are implemented.
 Homepage:            https://github.com/acfoltzer/nbt
 Bug-reports:         https://github.com/acfoltzer/nbt/issues
 License:             BSD3
 License-file:        LICENSE
-Author:              Adam C. Foltzer
-Maintainer:          acfoltzer@gmail.com
-Tested-With:         GHC==7.0.4
+Author:              Adam C. Foltzer <acfoltzer@gmail.com>, Stijn van Drongelen <rhymoid@gmail.com>
+Maintainer:          Adam C. Foltzer <acfoltzer@gmail.com>
+Tested-With:         GHC==7.0.4, GHC==7.4.1, GHC==7.6.2
 Category:            Data
 Build-type:          Simple
-Cabal-version:       >=1.8
-
-extra-source-files:
-  test/Tests.hs
-  test/nbt-tests.cabal
-  test/testWorld/level.dat
-  test/testWorld/region/r.-1.-1.mcr
-  test/testWorld/region/r.0.-1.mcr
-  test/testWorld/region/r.0.0.mcr
+Cabal-version:       >=1.14
+data-files:          test/testWorld/level.dat
+                     test/testWorld/region/r.-1.-1.mcr
+                     test/testWorld/region/r.0.-1.mcr
+                     test/testWorld/region/r.0.0.mcr
 
 source-repository head
   type:     git
@@ -28,25 +28,27 @@ source-repository head
 Library
   Exposed-modules:     Data.NBT
   hs-source-dirs:      src
-  Build-depends:       base == 4.*, 
+  Build-depends:       base == 4.*,
                        bytestring == 0.9.*,
                        cereal >= 0.3.4 && < 0.4,
-                       utf8-string == 0.3.*
-  ghc-options:         -Wall 
+                       text,
+                       array >= 0.4
+  ghc-options:         -Wall
 
-Test-suite tests
-  type: exitcode-stdio-1.0
-  main-is: Tests.hs
-  hs-source-dirs: test
-  build-depends:
-    base,
-    HUnit == 1.2.*,
-    QuickCheck,
-    test-framework,
-    test-framework-hunit,
-    test-framework-quickcheck2,
-    nbt,
-    bytestring,
-    cereal,
-    utf8-string,
-    zlib
+Test-Suite round-trip
+  ghc-options:         -Wall
+  type:                exitcode-stdio-1.0
+  main-is:             RoundTrip.hs
+  hs-source-dirs:      test
+  Build-depends:       base == 4.*,
+                       bytestring == 0.9.*,
+                       cereal >= 0.3.4 && < 0.4,
+                       zlib == 0.5.*,
+                       text,
+                       HUnit == 1.2.*,
+                       QuickCheck >= 2.4 && < 3.0,
+                       test-framework,
+                       test-framework-quickcheck2,
+                       test-framework-hunit,
+                       nbt == 0.4,
+                       array >= 0.4

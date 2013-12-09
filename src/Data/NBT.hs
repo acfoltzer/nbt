@@ -37,7 +37,8 @@ import qualified Data.Text              as T
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
 data TagType
-    = ByteType
+    = EndType
+    | ByteType
     | ShortType
     | IntType
     | LongType
@@ -51,7 +52,7 @@ data TagType
     deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
-    get = fmap (toEnum . pred . fromIntegral) getWord8
+    get = fmap (toEnum . fromIntegral) getWord8
     put = putWord8 . fromIntegral . succ . fromEnum
 
 -- | Primitive representation of NBT data. This type contains only the data
@@ -74,6 +75,7 @@ data NbtContents
     deriving (Show, Eq)
 
 getByType :: TagType -> Get NbtContents
+getByType EndType = fail "Can not get end-marker elements"
 getByType ByteType = ByteTag <$> get
 getByType ShortType = ShortTag <$> get
 getByType IntType = IntTag <$> get
@@ -93,8 +95,8 @@ getByType ListType = do
 getByType CompoundType = CompoundTag <$> getCompoundElements
   where
     getCompoundElements = do
-        ty <- lookAhead (get :: Get Int8)
-        if ty == 0
+        ty <- lookAhead get
+        if ty == EndType
             -- if we see an end tag, drop it and end the list
             then skip 1 >> return []
             -- otherwise keep reading

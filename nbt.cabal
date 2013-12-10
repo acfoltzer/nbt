@@ -30,7 +30,7 @@ Library
   hs-source-dirs:      src
   default-language:    Haskell2010
   Build-depends:       base == 4.*,
-                       bytestring >= 0.9 && <0.11,
+                       bytestring >= 0.9 && < 0.11,
                        cereal >= 0.3.4 && < 0.5,
                        text,
                        array >= 0.4
@@ -43,8 +43,8 @@ Test-Suite round-trip
   hs-source-dirs:      test
   default-language:    Haskell2010
   Build-depends:       base == 4.*,
-                       bytestring == 0.9.*,
-                       cereal >= 0.3.4 && < 0.4,
+                       bytestring >= 0.9 && < 0.11,
+                       cereal >= 0.3.4 && < 0.5,
                        zlib == 0.5.*,
                        text,
                        HUnit == 1.2.*,

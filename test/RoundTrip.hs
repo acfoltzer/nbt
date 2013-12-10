@@ -21,7 +21,8 @@ import           Test.HUnit
 import           Test.QuickCheck
 
 instance Arbitrary TagType where
-    arbitrary = toEnum <$> choose (0, 10)
+    arbitrary = toEnum <$> choose (1, 10)
+    -- don't arbitrarily pick end type, it has special meaning
 
 eitherErr :: (Either String a -> a)
 eitherErr = either error id
@@ -34,6 +35,7 @@ instance Arbitrary NBT where
     where
       mkArb ty =
         case ty of
+          EndType -> error "can't make end-type"
           ByteType -> ByteTag <$> arbitrary
           ShortType -> ShortTag <$> arbitrary
           IntType -> IntTag <$> arbitrary

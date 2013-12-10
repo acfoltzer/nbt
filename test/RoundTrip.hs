@@ -52,10 +52,10 @@ instance Arbitrary NBT where
             return (StringTag str)
           ListType -> do
             len   <- choose (0, 10) -- list types nest, don't get too big
-            subTy <- if len == 0 then return EndType else arbitrary
+            subTy <- arbitrary
             ts    <- replicateM len (mkArb subTy)
             let a  = IA.listArray (0, fromIntegral len - 1) ts
-            return (ListTag subTy a)
+            return (ListTag a)
           CompoundType -> do
             len <- choose (0, 10) -- compound types nest, don't get too big
             ts  <- replicateM len arbitrary

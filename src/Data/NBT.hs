@@ -53,7 +53,7 @@ data TagType
 
 instance Serialize TagType where
     get = fmap (toEnum . fromIntegral) getWord8
-    put = putWord8 . fromIntegral . succ . fromEnum
+    put = putWord8 . fromIntegral . fromEnum
 
 -- | Primitive representation of NBT data. This type contains only the data
 -- part, since named nodes can only exist inside compound nodes.

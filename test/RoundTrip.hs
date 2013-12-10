@@ -9,7 +9,6 @@ import qualified Data.Array.IArray                    as IA
 import           Data.Array.Unboxed                   (listArray)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as L
-import           Data.Int                             (Int32)
 import           Data.NBT
 import           Data.Serialize                       (decode, encode)
 import qualified Data.Text                            as T
@@ -21,7 +20,8 @@ import           Test.HUnit
 import           Test.QuickCheck
 
 instance Arbitrary TagType where
-    arbitrary = toEnum <$> choose (0, 10)
+    arbitrary = toEnum <$> choose (1, 11)
+    -- don't arbitrarily pick end type, it has special meaning
 
 eitherErr :: (Either String a -> a)
 eitherErr = either error id
@@ -34,34 +34,37 @@ instance Arbitrary NBT where
     where
       mkArb ty =
         case ty of
-          ByteType -> ByteTag <$> arbitrary
-          ShortType -> ShortTag <$> arbitrary
-          IntType -> IntTag <$> arbitrary
-          LongType -> LongTag <$> arbitrary
-          FloatType -> FloatTag <$> arbitrary
+          EndType    -> error "can't make end-type"
+          ByteType   -> ByteTag   <$> arbitrary
+          ShortType  -> ShortTag  <$> arbitrary
+          IntType    -> IntTag    <$> arbitrary
+          LongType   -> LongTag   <$> arbitrary
+          FloatType  -> FloatTag  <$> arbitrary
           DoubleType -> DoubleTag <$> arbitrary
           ByteArrayType -> do
-            len <- fromIntegral <$> choose (0, 100 :: Int) :: Gen Int32
-            ws <- replicateM (fromIntegral len) arbitrary
-            return $ ByteArrayTag . listArray (0, len - 1) $ ws
+            len  <- choose (0, 100)
+            ws   <- replicateM len arbitrary
+            let a = listArray (0, fromIntegral len - 1) ws
+            return (ByteArrayTag a)
           StringType -> do
-            n <- choose (0, 100) :: Gen Int
-            str <- T.pack <$> replicateM (fromIntegral n) arbitrary
-            return $ StringTag str
+            len <- choose (0, 100)
+            str <- T.pack <$> replicateM len arbitrary
+            return (StringTag str)
           ListType -> do
-            subTy <- arbitrary
-            len <- fromIntegral <$> choose (0, 11 :: Int) :: Gen Int32
-            ts <- replicateM (fromIntegral len) (mkArb subTy)
-            return $ ListTag subTy . IA.listArray (0, len - 1) $ ts
+            len   <- choose (0, 10) -- list types nest, don't get too big
+            subTy <- if len == 0 then return EndType else arbitrary
+            ts    <- replicateM len (mkArb subTy)
+            let a  = IA.listArray (0, fromIntegral len - 1) ts
+            return (ListTag subTy a)
           CompoundType -> do
-            n <- choose (0, 11)
-            ts <- replicateM n arbitrary
-            return $ CompoundTag ts
+            len <- choose (0, 10) -- compound types nest, don't get too big
+            ts  <- replicateM len arbitrary
+            return (CompoundTag ts)
           IntArrayType -> do
-            len <- fromIntegral <$> choose (0, 100 :: Int) :: Gen Int32
-            IntArrayTag
-              . listArray (0, len-1)
-              <$> (vector $ fromIntegral len)
+            len  <- choose (0, 100)
+            v    <- vector len
+            let a = listArray (0, fromIntegral len - 1) v
+            return (IntArrayTag a)
 
 prop_NBTroundTrip :: NBT -> Bool
 prop_NBTroundTrip nbt = eitherErr (decode (encode nbt)) == nbt

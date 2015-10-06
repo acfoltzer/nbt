@@ -19,7 +19,6 @@ NBT specification for details:
 
 module Data.NBT where
 
-import Control.Applicative    ((<$>),(<*>))
 import Control.Monad          (replicateM)
 import Data.Array.IArray      (Array, IArray (bounds))
 import Data.Array.Unboxed     (UArray, listArray, elems)

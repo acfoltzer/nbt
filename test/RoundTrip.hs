@@ -3,7 +3,6 @@
 module Main where
 
 import qualified Codec.Compression.GZip               as GZip
-import           Control.Applicative
 import           Control.Monad
 import qualified Data.Array.IArray                    as IA
 import           Data.Array.Unboxed                   (listArray)

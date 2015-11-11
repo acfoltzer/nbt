@@ -39,9 +39,12 @@ main = do
     let shouldBeNBT = (decode raw :: Either String NBT)
 
     -- Did we actually just read an NBT file?
+    -- If so, print NBT and then write it back out to file.
+    -- Otherwise, show the error.
     case shouldBeNBT of
-      Right nbt   -> print nbt
+      Right nbt   -> print nbt >> (BL.writeFile "anotherlevel.dat" $ prep nbt)
       Left err    -> putStrLn err
+  where prep n = GZip.compress $ BL.fromChunks [encode n]
 ```
 
 This `NBT` type has the following structure: `Text` is used for the name of a

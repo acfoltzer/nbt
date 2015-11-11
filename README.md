@@ -16,7 +16,7 @@ stack build
 
 ## Usage
 
-The `nbt` gives you a data type `NBT` along with types of all the tags in NBT's substructure. The library works by providing an `Serialize` instance for this `NBT` type as well as all the substructure tags by relation.
+The `nbt` library gives you a data type `NBT` along with types to all the tags in an NBT's substructure. The library works by providing an `Serialize` instance for this `NBT` type as well as all the substructure tags by relation.
 
 For the most basic usage, you'll need to read a NBT file in as a `ByteString`, decompress it, and then feed it in as a strict `ByteString` to `decode`:
 
@@ -25,22 +25,31 @@ import qualified  Codec.Compression.GZip as GZip
 import qualified  Data.ByteString.Lazy as BL
 import            Data.NBT
 import            Data.Serialize.Get
+import            Data.Serialize.Put
 
 main :: IO ()
 main = do
-    -- Grab raw lazy ByteString from some NBT file
-    raw <- BL.readFile "level.dat"
+    -- Grab a raw lazy ByteString from some NBT file
+    compressedRaw <- BL.readFile "level.dat"
+
     -- NBT files are GZip'd when stored, decompress it and make it strict
-    let n = BL.toStrict $ GZip.decompress raw
-    -- Use the nbt library's Serialize instance to obtain an NBT type!
-    print (decode n :: Either String NBT)
+    let raw = BL.toStrict $ GZip.decompress compressedRaw
+
+    -- Use the nbt library's Serialize instance to obtain an NBT type,
+    -- provided nothing goes wrong!
+    let shouldBeNBT = (decode raw :: Either String NBT)
+
+    -- Did we actually just read an NBT file?
+    case shouldBeNBT of
+      Right nbt   -> print nbt
+      Left err    -> putStrLn err
 ```
 
-This `NBT` type has the following structure, `Text` is used for the name of a
+This `NBT` type has the following structure: `Text` is used for the name of a
 tag while `NbtContents` is used for the tag's payload.
 
 ```haskell
-data NBT = NBT Text NbtContents deriving (show,Eq)a
+data NBT = NBT Text NbtContents deriving (Show,Eq)
 
 data NbtContents
   = ByteTag       Int8

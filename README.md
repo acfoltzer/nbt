@@ -24,8 +24,7 @@ For the most basic usage, you'll need to read a NBT file in as a `ByteString`, d
 import qualified  Codec.Compression.GZip as GZip
 import qualified  Data.ByteString.Lazy as BL
 import            Data.NBT
-import            Data.Serialize.Get
-import            Data.Serialize.Put
+import            Data.Serialize
 
 main :: IO ()
 main = do

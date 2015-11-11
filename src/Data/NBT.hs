@@ -52,14 +52,17 @@ data TagType
     | IntArrayType
     deriving (Show, Eq, Enum)
 
+
 instance Serialize TagType where
     get = fmap (toEnum . fromIntegral) getWord8
     put = putWord8 . fromIntegral . fromEnum
+
 
 -- | Primitive representation of NBT data. This type contains only the data
 -- part, since named nodes can only exist inside compound nodes.
 data NBT = NBT T.Text NbtContents
     deriving (Show, Eq)
+
 
 data NbtContents
     = ByteTag      Int8
@@ -75,6 +78,7 @@ data NbtContents
     | IntArrayTag  (UArray Int32 Int32)
     deriving (Show, Eq)
 
+
 getByType :: TagType -> Get NbtContents
 getByType EndType       = fail "Can not get end-marker elements"
 getByType ByteType      = ByteTag      <$> get
@@ -89,10 +93,12 @@ getByType ListType      = ListTag      <$> getList
 getByType CompoundType  = CompoundTag  <$> getCompoundElements
 getByType IntArrayType  = IntArrayTag  <$> getArrayElements get
 
+
 getList :: Get (Array Int32 NbtContents)
 getList = do
     subType <- get
     getArrayElements (getByType subType)
+
 
 putList :: Array Int32 NbtContents -> Put
 putList ts = do
@@ -101,6 +107,7 @@ putList ts = do
                x:_ -> typeOf x
     put ty
     putArray putContents ts
+
 
 getCompoundElements :: Get [NBT]
 getCompoundElements = do
@@ -111,8 +118,10 @@ getCompoundElements = do
                     xs <- getCompoundElements
                     return (x:xs)
 
+
 putCompoundElements :: [NBT] -> Put
 putCompoundElements xs = traverse_ put xs >> put EndType
+
 
 getArrayElements :: IArray a e => Get e -> Get (a Int32 e)
 getArrayElements getter = do
@@ -120,11 +129,13 @@ getArrayElements getter = do
     elts <- replicateM (fromIntegral len) getter
     return (listArray (0, len - 1) elts)
 
+
 getString :: Get T.Text
 getString = do
     len <- get :: Get Int16
     bs  <- getByteString (fromIntegral len)
     return (decodeUtf8 bs)
+
 
 putString :: T.Text -> Put
 putString str = do
@@ -133,11 +144,13 @@ putString str = do
     put (fromIntegral len :: Int16)
     putByteString bs
 
+
 putArray :: (Ix i, IArray a e) => (e -> Put) -> a i e -> Put
 putArray putter a = do
     let len = rangeSize (bounds a)
     put (fromIntegral len :: Int32)
     traverse_ putter (elems a)
+
 
 putContents :: NbtContents -> Put
 putContents tag = case tag of
@@ -153,6 +166,7 @@ putContents tag = case tag of
     CompoundTag ts      -> putCompoundElements ts
     IntArrayTag is      -> putArray put is
 
+
 instance Serialize NBT where
     get = do
         ty <- get
@@ -162,8 +176,10 @@ instance Serialize NBT where
         putString name
         putContents tag
 
+
 getNBT :: TagType -> Get NBT
 getNBT ty = NBT <$> getString <*> getByType ty
+
 
 typeOf :: NbtContents -> TagType
 typeOf ByteTag      {} = ByteType

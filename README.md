@@ -6,7 +6,7 @@
 
 ## Installation
 
-To install in pre-existing project, append 'nbt' to the build-depends field in your projects cabal file. Then add 'nbt-0.6' to the extra-deps in stack.yaml.
+To install in a pre-existing project, append 'nbt' to the build-depends field in your projects cabal file. Then add 'nbt-0.6' to the extra-deps in stack.yaml.
 
 Or to build from source:
 ```bash

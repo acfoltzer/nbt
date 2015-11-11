@@ -1,9 +1,13 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
+#ifndef MIN_VERSION_base
+#define MIN_VERSION_base(x,y,z) 1
+#endif
 
 module Main where
 
 import qualified Codec.Compression.GZip               as GZip
-import           Control.Applicative
 import           Control.Monad
 import qualified Data.Array.IArray                    as IA
 import           Data.Array.Unboxed                   (listArray)
@@ -18,6 +22,10 @@ import           Test.Framework.Providers.HUnit
 import           Test.Framework.Providers.QuickCheck2
 import           Test.HUnit
 import           Test.QuickCheck
+
+#if !MIN_VERSION_base(4,8,0)
+import           Control.Applicative
+#endif
 
 instance Arbitrary TagType where
     arbitrary = toEnum <$> choose (1, 11)

@@ -1,4 +1,9 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wall #-}
+
+#ifndef MIN_VERSION_base
+#define MIN_VERSION_base(x,y,z) 1
+#endif
 
 {- |
 
@@ -17,9 +22,8 @@ NBT specification for details:
 
 -}
 
-module Data.NBT where
+module Data.NBT (TagType(..), NBT(..), NbtContents(..), typeOf) where
 
-import Control.Applicative    ((<$>),(<*>))
 import Control.Monad          (replicateM)
 import Data.Array.IArray      (Array, IArray (bounds))
 import Data.Array.Unboxed     (UArray, listArray, elems)
@@ -34,6 +38,10 @@ import Data.Text.Encoding     (encodeUtf8, decodeUtf8)
 
 import qualified Data.ByteString        as B
 import qualified Data.Text              as T
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative    ((<$>),(<*>))
+#endif
 
 -- | Tag types listed in order so that deriving 'Enum' will assign
 -- them the correct number for the binary type field.
@@ -96,9 +104,11 @@ getList = do
 
 putList :: Array Int32 NbtContents -> Put
 putList ts = do
-    let ty = case elems ts of
-               []  -> EndType
-               x:_ -> typeOf x
+    ty <- case elems ts of
+            []  -> return EndType
+            x:xs | all (\e -> typeOf e == ty) xs -> return ty
+                 | otherwise                     -> fail "Attempted to write heterogeneous list"
+              where ty = typeOf x
     put ty
     putArray putContents ts
 
@@ -120,18 +130,21 @@ getArrayElements getter = do
     elts <- replicateM (fromIntegral len) getter
     return (listArray (0, len - 1) elts)
 
-getString :: Get T.Text
-getString = do
+getBytes16 :: Get B.ByteString
+getBytes16 = do
     len <- get :: Get Int16
-    bs  <- getByteString (fromIntegral len)
-    return (decodeUtf8 bs)
+    getByteString (fromIntegral len)
+
+putBytes16 :: B.ByteString -> Put
+putBytes16 bs = do
+    put (fromIntegral (B.length bs) :: Int16)
+    putByteString bs
+
+getString :: Get T.Text
+getString = decodeUtf8 <$> getBytes16
 
 putString :: T.Text -> Put
-putString str = do
-    let bs  = encodeUtf8 str
-        len = B.length bs
-    put (fromIntegral len :: Int16)
-    putByteString bs
+putString = putBytes16 . encodeUtf8
 
 putArray :: (Ix i, IArray a e) => (e -> Put) -> a i e -> Put
 putArray putter a = do

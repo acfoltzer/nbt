@@ -2,6 +2,7 @@
 
 [![build status][build]][travis]
 [![hackage badge][badge]][hackage]
+![Minecraft lambda](https://raw.githubusercontent.com/acfoltzer/nbt/master/img/logo.png)
 
 ## Installation
 
@@ -72,5 +73,3 @@ data NbtContents
 [travis]: https://travis-ci.org/acfoltzer/nbt
 [badge]: https://img.shields.io/hackage/v/nbt.svg
 [hackage]: http://hackage.haskell.org/package/nbt
-
-

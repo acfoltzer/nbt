@@ -58,6 +58,7 @@ data TagType
     | ListType
     | CompoundType
     | IntArrayType
+    | LongArrayType
     deriving (Show, Eq, Enum)
 
 instance Serialize TagType where
@@ -81,6 +82,7 @@ data NbtContents
     | ListTag      (Array Int32 NbtContents)
     | CompoundTag  [NBT]
     | IntArrayTag  (UArray Int32 Int32)
+    | LongArrayTag (UArray Int32 Int64)
     deriving (Show, Eq)
 
 getByType :: TagType -> Get NbtContents
@@ -96,6 +98,7 @@ getByType StringType    = StringTag    <$> getString
 getByType ListType      = ListTag      <$> getList
 getByType CompoundType  = CompoundTag  <$> getCompoundElements
 getByType IntArrayType  = IntArrayTag  <$> getArrayElements get
+getByType LongArrayType = LongArrayTag <$> getArrayElements get
 
 getList :: Get (Array Int32 NbtContents)
 getList = do
@@ -165,6 +168,7 @@ putContents tag = case tag of
     ListTag ts          -> putList ts
     CompoundTag ts      -> putCompoundElements ts
     IntArrayTag is      -> putArray put is
+    LongArrayTag is     -> putArray put is
 
 instance Serialize NBT where
     get = do
@@ -190,3 +194,4 @@ typeOf StringTag    {} = StringType
 typeOf ListTag      {} = ListType
 typeOf CompoundTag  {} = CompoundType
 typeOf IntArrayTag  {} = IntArrayType
+typeOf LongArrayTag {} = LongArrayType

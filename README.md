@@ -4,17 +4,6 @@
 [![hackage badge][badge]][hackage]
 ![Minecraft lambda](https://raw.githubusercontent.com/acfoltzer/nbt/master/img/logo.png)
 
-## Installation
-
-To install in a pre-existing project, append 'nbt' to the build-depends field in your projects cabal file. Then add 'nbt-0.6' to the extra-deps in stack.yaml.
-
-Or to build from source:
-```bash
-git clone https://github.com/acfoltzer/nbt
-cd nbt/
-stack build
-```
-
 ## Usage
 
 The `nbt` library gives you a data type `NBT` along with types to all the tags in an NBT's substructure. The library works by providing an `Serialize` instance for this `NBT` type as well as all the substructure tags by relation.
@@ -55,18 +44,19 @@ tag while `NbtContents` is used for the tag's payload.
 data NBT = NBT Text NbtContents deriving (Show,Eq)
 
 data NbtContents
-  = ByteTag       Int8
-  | ShortTag      Int16
-  | IntTag        Int32
-  | LongTag       Int64
-  | FloatTag      Float
-  | DoubleTag     Double
-  | ByteArrayTag  (UArray Int32 Int8)
-  | StringTag     T.Text
-  | ListTag       (Array Int32 NbtContents)
-  | CompoundTag   [NBT]
-  | IntArrayTag   (UArray Int32 Int32)
-  deriving (Show,Eq)
+  = ByteTag      Int8
+  | ShortTag     Int16
+  | IntTag       Int32
+  | LongTag      Int64
+  | FloatTag     Float
+  | DoubleTag    Double
+  | ByteArrayTag (UArray Int32 Int8)
+  | StringTag    T.Text
+  | ListTag      (Array Int32 NbtContents)
+  | CompoundTag  [NBT]
+  | IntArrayTag  (UArray Int32 Int32)
+  | LongArrayTag (UArray Int32 Int64)
+  deriving (Show, Eq)
 ```
 
 [build]: https://travis-ci.org/acfoltzer/nbt.png?branch=master

@@ -28,7 +28,7 @@ import           Control.Applicative
 #endif
 
 instance Arbitrary TagType where
-    arbitrary = toEnum <$> choose (1, 11)
+    arbitrary = toEnum <$> choose (1, 12)
     -- don't arbitrarily pick end type, it has special meaning
 
 eitherErr :: (Either String a -> a)
@@ -73,6 +73,11 @@ instance Arbitrary NBT where
             v    <- vector len
             let a = listArray (0, fromIntegral len - 1) v
             return (IntArrayTag a)
+          LongArrayType -> do
+            len  <- choose (0, 100)
+            v    <- vector len
+            let a = listArray (0, fromIntegral len - 1) v
+            return (LongArrayTag a)
 
 prop_NBTroundTrip :: NBT -> Bool
 prop_NBTroundTrip nbt = eitherErr (decode (encode nbt)) == nbt

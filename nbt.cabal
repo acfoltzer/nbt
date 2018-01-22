@@ -1,21 +1,21 @@
 Name:                nbt
-Version:             0.6
+Version:             0.7
 Synopsis: A parser/serializer for Minecraft's Named Binary Tag (NBT)
   data format.
 Description: This package includes a data type for the NBT file
   format, notably used to represent saved data in Minecraft and
-  significant parts of the Minecraft network protocol.  All twelve
-  tags of verion 19133 (needed for Anvil maps) are implemented.
+  significant parts of the Minecraft network protocol.  All thirteen
+  tags used in Minecraft 1.13 are implemented.
 Homepage:            https://github.com/acfoltzer/nbt
 Bug-reports:         https://github.com/acfoltzer/nbt/issues
 License:             BSD3
 License-file:        LICENSE
 Author:              Adam C. Foltzer <acfoltzer@gmail.com>, Stijn van Drongelen <rhymoid@gmail.com>
 Maintainer:          Adam C. Foltzer <acfoltzer@gmail.com>
-Tested-With:         GHC==7.0.4, GHC==7.4.1, GHC==7.6.2
+Tested-With:         GHC==7.0.4, GHC==7.4.1, GHC==7.6.2, GHC==8.0.2
 Category:            Data
 Build-type:          Simple
-Cabal-version:       >=1.14
+Cabal-version:       1.14
 data-files:          test/testWorld/level.dat
                      test/testWorld/region/r.-1.-1.mcr
                      test/testWorld/region/r.0.-1.mcr

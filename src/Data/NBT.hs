@@ -110,7 +110,7 @@ putList ts = do
     ty <- case elems ts of
             []  -> return EndType
             x:xs | all (\e -> typeOf e == ty) xs -> return ty
-                 | otherwise                     -> fail "Attempted to write heterogeneous list"
+                 | otherwise                     -> error "Attempted to write heterogeneous list"
               where ty = typeOf x
     put ty
     putArray putContents ts
